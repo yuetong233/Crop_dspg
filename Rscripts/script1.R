@@ -6,6 +6,7 @@ head(data)
 
 library(ggplot2)
 library(dplyr)
+
 #Initial plot to view
 ggplot(data, aes(x = Period, y =Value)) + geom_point()
 
@@ -43,6 +44,74 @@ ggplot(data, aes(x = Period, y = Value, group = Year)) +
 
 
 
+#Implementing the plot in R shiny
+library(shiny)
+library(readr)
+library(plotly)
 
+# Extract week number and safely order Period
+data <- data %>%
+  mutate(WeekNum = as.numeric(gsub("[^0-9]", "", Period))) %>%
+  arrange(WeekNum) %>%
+  mutate(Period = factor(Period, levels = unique(Period))) %>%
+  mutate(Year = as.factor(Year))  # Ensure Year is a factor
 
+# Define UI
+ui <- fluidPage(
+  titlePanel("Virginia Corn Condition Dashboard"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      checkboxGroupInput(
+        inputId = "year",
+        label = "Select Year(s):",
+        choices = levels(data$Year),
+        selected = levels(data$Year)
+      ),
+      sliderInput(
+        inputId = "weekRange",
+        label = "Select Week Range:",
+        min = min(data$WeekNum, na.rm = TRUE),
+        max = max(data$WeekNum, na.rm = TRUE),
+        value = c(min(data$WeekNum, na.rm = TRUE), max(data$WeekNum, na.rm = TRUE)),
+        step = 1,
+        sep = ""
+      )
+    ),
+    
+    mainPanel(
+      plotlyOutput("cornPlot")
+    )
+  )
+)
 
+# Define server
+server <- function(input, output) {
+  output$cornPlot <- renderPlotly({
+    # Filter data by selected years and week range
+    filtered_data <- data %>%
+      filter(Year %in% input$year,
+             WeekNum >= input$weekRange[1],
+             WeekNum <= input$weekRange[2])
+    
+    # Create plot
+    p <- ggplot(filtered_data, aes(
+      x = Period, y = Value, color = Year, group = Year,
+      text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
+    )) +
+      geom_line(linewidth = 1.2) +
+      geom_point() +
+      labs(
+        title = "Corn Rated 'Good' by Week in Virginia",
+        x = "Week",
+        y = "Percent Rated Good"
+      ) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8))
+    
+    ggplotly(p, tooltip = "text")
+  })
+}
+
+# Launch the app
+shinyApp(ui = ui, server = server)
