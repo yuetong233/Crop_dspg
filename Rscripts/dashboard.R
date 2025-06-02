@@ -6,6 +6,7 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 library(plotly)
+library(zoo)
 
 # Load and prepare data
 data <- read.csv("GoodCorn.csv")
@@ -16,12 +17,19 @@ data <- data %>%
   mutate(Period = factor(Period, levels = unique(Period))) %>%
   mutate(Year = as.factor(Year))
 
+# Placeholder empty state comparison data
+dummy_state_data <- data.frame(
+  year = rep(2021:2024, 2),
+  yield = NA,
+  State = rep(c("North Carolina", "Maryland"), each = 4)
+)
+
 # UI
 ui <- fluidPage(
   theme = bs_theme(bootswatch = "flatly"),
   
   tags$head(
-    tags$style(HTML("
+    tags$style(HTML("       
       h3, h4 {
         color: #2c3e50;
         font-weight: 600;
@@ -100,6 +108,20 @@ ui <- fluidPage(
                       p("This section will include Remote Sensing data once available.")
                )
              )
+    ),
+    
+    # 5. By State Yield Comparison ----
+    tabPanel("By State Yield Comparison",
+             fluidRow(
+               column(4,
+                      radioButtons("state_compare", "Compare Virginia to:",
+                                   choices = c("North Carolina", "Maryland"),
+                                   selected = "North Carolina")
+               ),
+               column(8,
+                      plotOutput("stateComparisonPlot")
+               )
+             )
     )
   )
 )
@@ -127,6 +149,23 @@ server <- function(input, output) {
       theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8))
     
     ggplotly(p, tooltip = "text")
+  })
+  
+  output$stateComparisonPlot <- renderPlot({
+    selected_state <- input$state_compare
+    
+    placeholder_data <- dummy_state_data %>%
+      filter(State == selected_state)
+    
+    ggplot(placeholder_data, aes(x = year, y = yield)) +
+      geom_line(color = "gray") +
+      geom_point() +
+      labs(
+        title = paste("Virginia vs", selected_state, "Yield Comparison (placeholder)"),
+        x = "Year",
+        y = "Yield (bushels/acre)"
+      ) +
+      theme_minimal()
   })
 }
 
