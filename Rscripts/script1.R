@@ -115,3 +115,115 @@ server <- function(input, output) {
 
 # Launch the app
 shinyApp(ui = ui, server = server)
+
+#Exploring the poor quality from 20212-2024
+library(shiny)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(readr)
+
+# Load datasets
+good_data <- read.csv("GoodCorn.csv")
+poor_data <- read.csv("PoorCorn.csv")
+
+# Add quality type
+good_data$Quality <- "Good"
+poor_data$Quality <- "Poor"
+
+# Combine and preprocess
+data <- bind_rows(good_data, poor_data) %>%
+  mutate(
+    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
+    Year = as.factor(Year)
+  ) %>%
+  arrange(WeekNum) %>%
+  mutate(Period = factor(Period, levels = unique(Period)))
+
+# UI
+ui <- fluidPage(
+  titlePanel("🌽 Virginia Corn Condition Dashboard"),
+  sidebarLayout(
+    sidebarPanel(
+      checkboxGroupInput(
+        inputId = "year",
+        label = "Select Year(s):",
+        choices = levels(data$Year),
+        selected = levels(data$Year)
+      ),
+      sliderInput(
+        inputId = "weekRange",
+        label = "Select Week Range:",
+        min = min(data$WeekNum, na.rm = TRUE),
+        max = max(data$WeekNum, na.rm = TRUE),
+        value = c(min(data$WeekNum, na.rm = TRUE), max(data$WeekNum, na.rm = TRUE)),
+        step = 1,
+        sep = ""
+      )
+    ),
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Good vs Poor", plotlyOutput("comparePlot")),
+        tabPanel("Poor Only", plotlyOutput("poorPlot"))
+      )
+    )
+  )
+)
+
+# Server
+server <- function(input, output) {
+  
+  filtered_data <- reactive({
+    data %>%
+      filter(
+        Year %in% input$year,
+        WeekNum >= input$weekRange[1],
+        WeekNum <= input$weekRange[2]
+      )
+  })
+  
+  output$comparePlot <- renderPlotly({
+    p1 <- ggplot(filtered_data(), aes(
+      x = Period, y = Value, color = Quality, group = interaction(Quality, Year),
+      text = paste("Year:", Year, "<br>Week:", Period, "<br>", Quality, ":", Value)
+    )) +
+      geom_line(linewidth = 1.2) +
+      geom_point() +
+      labs(
+        title = "Comparison of Corn Rated 'Good' vs 'Poor' by Week",
+        x = "Week",
+        y = "Percent"
+      ) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8))
+    
+    ggplotly(p1, tooltip = "text")
+  })
+  
+  output$poorPlot <- renderPlotly({
+    poor_only <- filtered_data() %>% filter(Quality == "Poor")
+    
+    p2 <- ggplot(poor_only, aes(
+      x = Period, y = Value, color = Year, group = Year,
+      text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
+    )) +
+      geom_line(linewidth = 1.2) +
+      geom_point() +
+      labs(
+        title = "Corn Rated 'Poor' by Week in Virginia",
+        x = "Week",
+        y = "Percent Rated Poor"
+      ) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8))
+    
+    ggplotly(p2, tooltip = "text")
+  })
+}
+
+# Run App
+shinyApp(ui = ui, server = server)
+
+
+
+

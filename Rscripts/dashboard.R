@@ -1,4 +1,4 @@
-#Dashboard Outline
+#Dashboard
 library(shiny)
 library(shinyWidgets)
 library(bslib)
@@ -6,24 +6,63 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 library(plotly)
-library(zoo)
 
-# Load and prepare data
-data <- read.csv("GoodCorn.csv")
+# Load data
+good_data <- read.csv("GoodCorn.csv")
+poor_data <- read.csv("PoorCorn.csv")
 
-data <- data %>%
-  mutate(WeekNum = as.numeric(gsub("[^0-9]", "", Period))) %>%
-  arrange(WeekNum) %>%
-  mutate(Period = factor(Period, levels = unique(Period))) %>%
-  mutate(Year = as.factor(Year))
+# Preprocess both
+good_data <- good_data %>%
+  mutate(
+    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
+    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
+    Year = as.factor(Year)
+  )
+
+poor_data <- poor_data %>%
+  mutate(
+    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
+    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
+    Year = as.factor(Year)
+  )
 
 # UI
 ui <- fluidPage(
-  theme = bs_theme(bootswatch = "flatly"),  # Simple clean theme
-  titlePanel("Planting Progress and Crop Condition Interactive Dashboard"),
+  theme = bs_theme(bootswatch = "flatly"),
+  tags$head(
+    tags$style(HTML("
+    h1, h2, h3, h4 {
+      color: #2e7d32;  /* Dark green */
+      font-weight: bold;
+    }
+  "))
+  ),
+
+  tags$head(
+    tags$style(HTML("
+    .title-box {
+      background-color: #e8f5e9;  /* soft pale green */
+      padding: 20px;
+      border: 2px solid #2e7d32;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .title-box h1 {
+      color: #2e7d32;
+      margin: 0;
+    }
+  "))
+  ),
+  
+  
+  div(class = "title-box",
+      h1("Planting Progress and Crop Condition Interactive Dashboard")
+  ),
   
   navlistPanel(
-    widths = c(2, 10),  # Sidebar = 2/12, Main panel = 10/12
+    widths = c(2, 10),
     
     tabPanel("Objective",
              h3("Dashboard Purpose"),
@@ -43,18 +82,31 @@ ui <- fluidPage(
     ),
     
     tabPanel("Crop Conditions",
-             pickerInput("good_year", "Select Year(s):",
-                         choices = levels(data$Year),
-                         selected = levels(data$Year),
+             # Reference paragraph
+             h4("About This Data"),
+             p("This section presents weekly crop condition data for corn in Virginia from 2021 to 2024, sourced from the USDA National Agricultural Statistics Service (NASS). The data is based on survey responses evaluating crop health, categorized into five condition levels: Excellent, Good, Fair, Poor, and Very Poor."),
+             p("Weekly observations span Week 19 to Week 38, which approximately correspond to the months of mid-May through mid-September. These ratings offer insight into how Virginia's corn crops performed throughout the growing season each year."),
+             
+             # Filters
+             pickerInput("selected_years", "Select Year(s):",
+                         choices = levels(good_data$Year),
+                         selected = levels(good_data$Year),
                          multiple = TRUE,
                          options = list(`actions-box` = TRUE)),
+             
              sliderInput("weekRange", "Select Week Range:",
-                         min = min(data$WeekNum, na.rm = TRUE),
-                         max = max(data$WeekNum, na.rm = TRUE),
-                         value = c(min(data$WeekNum, na.rm = TRUE), max(data$WeekNum, na.rm = TRUE)),
+                         min = min(good_data$WeekNum, na.rm = TRUE),
+                         max = max(good_data$WeekNum, na.rm = TRUE),
+                         value = c(min(good_data$WeekNum, na.rm = TRUE), max(good_data$WeekNum, na.rm = TRUE)),
                          step = 1, sep = ""),
-             plotlyOutput("cornPlot")
+             
+             # Tabs for Good and Poor plots
+             tabsetPanel(
+               tabPanel("Good", plotlyOutput("goodPlot")),
+               tabPanel("Poor", plotlyOutput("poorPlot"))
+             )
     ),
+    
     
     tabPanel("Remote Sensing",
              h4("Remote Sensing Placeholder"),
@@ -73,27 +125,55 @@ ui <- fluidPage(
 
 # Server
 server <- function(input, output) {
-  output$cornPlot <- renderPlotly({
-    filtered_data <- data %>%
-      filter(Year %in% input$good_year,
-             WeekNum >= input$weekRange[1],
-             WeekNum <= input$weekRange[2])
-    
-    p <- ggplot(filtered_data, aes(
-      x = Period, y = Value, color = Year, group = Year,
-      text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
-    )) +
-      geom_line(linewidth = 1.2) +
-      geom_point() +
-      labs(
-        title = "Corn Rated 'Good' by Week in Virginia",
-        x = "Week",
-        y = "Percent Rated Good"
-      ) +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8))
-    
-    ggplotly(p, tooltip = "text")
+  
+  filtered_good <- reactive({
+    good_data %>%
+      filter(
+        Year %in% input$selected_years,
+        WeekNum >= input$weekRange[1],
+        WeekNum <= input$weekRange[2]
+      )
+  })
+  
+  filtered_poor <- reactive({
+    poor_data %>%
+      filter(
+        Year %in% input$selected_years,
+        WeekNum >= input$weekRange[1],
+        WeekNum <= input$weekRange[2]
+      )
+  })
+  
+  output$goodPlot <- renderPlotly({
+    ggplotly(
+      ggplot(filtered_good(), aes(
+        x = Period, y = Value, color = Year, group = Year,
+        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
+      )) +
+        geom_line(linewidth = 1.2) +
+        geom_point() +
+        labs(title = "Corn Rated 'Good' by Week in Virginia",
+             x = "Week", y = "Percent Rated Good") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
+      tooltip = "text"
+    )
+  })
+  
+  output$poorPlot <- renderPlotly({
+    ggplotly(
+      ggplot(filtered_poor(), aes(
+        x = Period, y = Value, color = Year, group = Year,
+        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
+      )) +
+        geom_line(linewidth = 1.2) +
+        geom_point() +
+        labs(title = "Corn Rated 'Poor' by Week in Virginia",
+             x = "Week", y = "Percent Rated Poor") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
+      tooltip = "text"
+    )
   })
 }
 
