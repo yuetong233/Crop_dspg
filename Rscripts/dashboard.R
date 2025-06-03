@@ -43,12 +43,13 @@ ui <- fluidPage(
     "))
   ),
   
-  titlePanel("🌽 Virginia Corn Condition Dashboard"),
+  titlePanel("Planting Progress and Crop Condition Interactive Dashboard
+"),
   
   tabsetPanel(
     
     # 1. Overview Tab ----
-    tabPanel("Overview",
+    tabPanel("Objective",
              fluidRow(
                column(12,
                       h3("Dashboard Purpose"),
@@ -60,7 +61,7 @@ ui <- fluidPage(
     ),
     
     # 2. Conditions by Year Tab ----
-    tabPanel("Conditions by Year",
+    tabPanel("Planting Progress By Year",
              fluidRow(
                column(4,
                       h4("Select Year(s)"),
@@ -78,7 +79,7 @@ ui <- fluidPage(
     ),
     
     # 3. Quality Comparison Tab ----
-    tabPanel("Quality Comparison",
+    tabPanel("Crop Condition Quality Comparison by Year",
              fluidRow(
                column(4,
                       h4("Filter Options"),
