@@ -17,112 +17,56 @@ data <- data %>%
   mutate(Period = factor(Period, levels = unique(Period))) %>%
   mutate(Year = as.factor(Year))
 
-# Placeholder empty state comparison data
-dummy_state_data <- data.frame(
-  year = rep(2021:2024, 2),
-  yield = NA,
-  State = rep(c("North Carolina", "Maryland"), each = 4)
-)
-
 # UI
 ui <- fluidPage(
-  theme = bs_theme(bootswatch = "flatly"),
+  theme = bs_theme(bootswatch = "flatly"),  # Simple clean theme
+  titlePanel("Planting Progress and Crop Condition Interactive Dashboard"),
   
-  tags$head(
-    tags$style(HTML("       
-      h3, h4 {
-        color: #2c3e50;
-        font-weight: 600;
-      }
-      .tab-pane {
-        padding: 20px;
-      }
-      body {
-        background-color: #f8f9fa;
-      }
-    "))
-  ),
-  
-  titlePanel("Planting Progress and Crop Condition Interactive Dashboard
-"),
-  
-  tabsetPanel(
+  navlistPanel(
+    widths = c(2, 10),  # Sidebar = 2/12, Main panel = 10/12
     
-    # 1. Overview Tab ----
     tabPanel("Objective",
-             fluidRow(
-               column(12,
-                      h3("Dashboard Purpose"),
-                      p("This dashboard will help Virginia farmers and stakeholders explore crop condition trends using USDA NASS data."),
-                      h4("Instructions"),
-                      p("Use the tabs to explore data by year, quality, and remote sensing.")
-               )
-             )
+             h3("Dashboard Purpose"),
+             p("This dashboard helps Virginia farmers and stakeholders explore crop condition trends using USDA NASS data."),
+             h4("Instructions"),
+             p("Use the sidebar to explore planting progress, crop quality, remote sensing, and state comparisons.")
     ),
     
-    # 2. Conditions by Year Tab ----
-    tabPanel("Planting Progress By Year",
-             fluidRow(
-               column(4,
-                      h4("Select Year(s)"),
-                      pickerInput("year", NULL,
-                                  choices = c("2021", "2022", "2023", "2024"),
-                                  multiple = TRUE,
-                                  selected = "2024",
-                                  options = list(`actions-box` = TRUE))
-               ),
-               column(8,
-                      h4("Line Plot Placeholder"),
-                      p("This will display a line plot of condition trends for the selected year(s).")
-               )
-             )
+    tabPanel("Planting Progress",
+             pickerInput("year", "Select Year(s):",
+                         choices = c("2021", "2022", "2023", "2024"),
+                         multiple = TRUE,
+                         selected = "2024",
+                         options = list(`actions-box` = TRUE)),
+             h4("Planting Progress Line Plot (Coming Soon)"),
+             p("This section will display planting progress trends for the selected years.")
     ),
     
-    # 3. Quality Comparison Tab ----
-    tabPanel("Crop Condition Quality Comparison by Year",
-             fluidRow(
-               column(4,
-                      h4("Filter Options"),
-                      pickerInput("good_year", "Select Year(s):",
-                                  choices = levels(data$Year),
-                                  selected = levels(data$Year),
-                                  multiple = TRUE,
-                                  options = list(`actions-box` = TRUE)),
-                      
-                      sliderInput("weekRange", "Select Week Range:",
-                                  min = min(data$WeekNum, na.rm = TRUE),
-                                  max = max(data$WeekNum, na.rm = TRUE),
-                                  value = c(min(data$WeekNum, na.rm = TRUE), max(data$WeekNum, na.rm = TRUE)),
-                                  step = 1, sep = "")
-               ),
-               column(8,
-                      plotlyOutput("cornPlot")
-               )
-             )
+    tabPanel("Crop Conditions",
+             pickerInput("good_year", "Select Year(s):",
+                         choices = levels(data$Year),
+                         selected = levels(data$Year),
+                         multiple = TRUE,
+                         options = list(`actions-box` = TRUE)),
+             sliderInput("weekRange", "Select Week Range:",
+                         min = min(data$WeekNum, na.rm = TRUE),
+                         max = max(data$WeekNum, na.rm = TRUE),
+                         value = c(min(data$WeekNum, na.rm = TRUE), max(data$WeekNum, na.rm = TRUE)),
+                         step = 1, sep = ""),
+             plotlyOutput("cornPlot")
     ),
     
-    # 4. Remote Sensing Tab ----
-    tabPanel("Remote Sensing Data",
-             fluidRow(
-               column(12,
-                      h4("Remote Sensing Placeholder"),
-                      p("This section will include Remote Sensing data once available.")
-               )
-             )
+    tabPanel("Remote Sensing",
+             h4("Remote Sensing Placeholder"),
+             p("This section will include Remote Sensing data once available.")
     ),
     
-    # 5. By State Yield Comparison ----
-    tabPanel("By State Yield Comparison",
-             fluidRow(
-               column(4,
-                      radioButtons("state_compare", "Compare Virginia to:",
-                                   choices = c("North Carolina", "Maryland"),
-                                   selected = "North Carolina")
-               ),
-               column(8,
-                      plotOutput("stateComparisonPlot")
-               )
-             )
+    tabPanel("State Comparison",
+             radioButtons("state_compare", "Compare Virginia to:",
+                          choices = c("North Carolina", "Maryland"),
+                          selected = "North Carolina"),
+             h4("State Comparison (Data Needed)"),
+             p("This section will show yield comparisons between Virginia and selected states when data is available.")
     )
   )
 )
@@ -151,25 +95,7 @@ server <- function(input, output) {
     
     ggplotly(p, tooltip = "text")
   })
-  
-  output$stateComparisonPlot <- renderPlot({
-    selected_state <- input$state_compare
-    
-    placeholder_data <- dummy_state_data %>%
-      filter(State == selected_state)
-    
-    ggplot(placeholder_data, aes(x = year, y = yield)) +
-      geom_line(color = "gray") +
-      geom_point() +
-      labs(
-        title = paste("Virginia vs", selected_state, "Yield Comparison (placeholder)"),
-        x = "Year",
-        y = "Yield (bushels/acre)"
-      ) +
-      theme_minimal()
-  })
 }
 
 # Run App
 shinyApp(ui = ui, server = server)
-
