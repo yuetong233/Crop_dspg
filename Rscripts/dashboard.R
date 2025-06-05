@@ -9,14 +9,14 @@ library(plotly)
 library(rnassqs)
 library(zoo)
 
-# Authenticate NASS API
+# Authenticate the NASS API
 nassqs_auth(key = "E0DE4B3D-0418-32C4-8541-6C4C8954534A") 
 
-# Load data
+# Load the good and poor corn data
 good_data <- read.csv("GoodCorn.csv")
 poor_data <- read.csv("PoorCorn.csv")
 
-# Preprocess both
+# Preprocess both the data sets
 good_data <- good_data %>%
   mutate(
     WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
@@ -76,14 +76,31 @@ ui <- fluidPage(
              p("Use the sidebar to explore planting progress, crop quality, remote sensing, and state comparisons.")
     ),
     
-    tabPanel("Planting Progress",
-             pickerInput("year", "Select Year(s):",
-                         choices = c("2021", "2022", "2023", "2024"),
-                         multiple = TRUE,
-                         selected = "2024",
-                         options = list(`actions-box` = TRUE)),
-             h4("Planting Progress Line Plot (Coming Soon)"),
-             p("This section will display planting progress trends for the selected years.")
+    tabPanel("Corn Planting Progress",
+             h3("Corn Planting Progress"),
+             p("The plot visualizes the growing percentage of corn planted in Virginia over the planting season weeks for the years you select. "),
+             p("Each line or point represents a different year, showing how planting progresses week by week. "), 
+             p("The visualization helps to compare planting pace across different years, to identify trends and understand how current progress lines up with historical patterns."),
+             # Controls
+             fluidRow(
+               column(6,
+                      pickerInput("planting_years", "Select Year(s):",
+                                  choices = c("2021", "2022", "2023", "2024", as.character(as.numeric(format(Sys.Date(), "%Y")) + 1)),
+                                  selected = c("2024"),
+                                  multiple = TRUE,
+                                  options = list(`actions-box` = TRUE))
+               ),
+               column(6,
+                      sliderInput("planting_date_range", "Select Date Range:",
+                                  min = as.Date("2021-04-01"), # Assuming planting starts around April 1st
+                                  max = as.Date("2024-07-31"), # Assuming planting finishes by end of July
+                                  value = c(as.Date("2024-04-01"), as.Date("2024-07-31")),
+                                  timeFormat = "%Y-%m-%d")
+               )
+             ),
+             
+             # Output
+             plotlyOutput("planting_plot")
     ),
     
     tabPanel("Crop Conditions",
@@ -250,7 +267,7 @@ server <- function(input, output) {
     ggplotly(p)
   })
   
-  # YoY Change Plot
+  # alter the plot 
   output$yoy_plot <- renderPlotly({
     req(yield_data())
     
@@ -286,7 +303,60 @@ server <- function(input, output) {
         yield_std = sd(Value, na.rm = TRUE)
       )
   })
+  
+  # Corn planting progress data
+  planting_data <- reactive({
+    req(input$planting_years, input$planting_date_range)
+    
+    all_data <- lapply(input$planting_years, function(year) {
+      nassqs(list(
+        source_desc = "SURVEY",
+        sector_desc = "CROPS",
+        group_desc = "FIELD CROPS",
+        commodity_desc = "CORN",
+        statisticcat_desc = "PROGRESS",
+        unit_desc = "PCT PLANTED",
+        state_name = "VIRGINIA",
+        year = year
+      ))
+    })
+    
+    # Combine data and preprocess
+    combined_data <- do.call(rbind, all_data)
+    
+    combined_data %>%
+      mutate(week = as.Date(week_ending),
+             value = as.numeric(Value)) %>%
+      filter(!is.na(week)) %>% # Filter out rows with NA weeks after conversion
+      arrange(year, week) %>%
+      filter(week >= input$planting_date_range[1], # Filter by selected date range
+             week <= input$planting_date_range[2])
+  })
+  
+  # Corn planting progress plot
+  output$planting_plot <- renderPlotly({
+    req(planting_data())
+    
+    p <- ggplot(planting_data(), aes(x = week, y = value, color = factor(year), group = factor(year),
+                                     text = paste("Year:", year, "<br>Week Ending:", week, "<br>% Planted:", value)))
+    
+    # Check if there's more than one year selected to draw lines
+    if (length(unique(planting_data()$year)) > 1) {
+      p <- p + geom_line(size = 1.2)
+    }
+    
+    p <- p + geom_point(size = 2) +
+      labs(title = "Corn Planting Progress in Virginia",
+           y = "% Planted",
+           x = "Week Ending",
+           color = "Year") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    ggplotly(p, tooltip = "text")
+  })
 }
 
-# Run App
+# Run the shiny app 
 shinyApp(ui = ui, server = server)
+
