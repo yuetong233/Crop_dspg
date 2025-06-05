@@ -19,7 +19,7 @@ verypoor_data <- read.csv("VeryPoorCorn.csv")
 excellent_data <- read.csv("ExcellentCorn.csv")
 fair_data <- read.csv("FairCorn.csv")
 
-<<<<<<< HEAD
+#<<<<<<< HEAD
 # Preprocess both the data sets
 =======
 # Preprocess both
