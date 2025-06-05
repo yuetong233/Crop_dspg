@@ -15,8 +15,29 @@ nassqs_auth(key = "E0DE4B3D-0418-32C4-8541-6C4C8954534A")
 # Load the good and poor corn data
 good_data <- read.csv("GoodCorn.csv")
 poor_data <- read.csv("PoorCorn.csv")
+verypoor_data <- read.csv("VeryPoorCorn.csv")
+excellent_data <- read.csv("ExcellentCorn.csv")
+fair_data <- read.csv("FairCorn.csv")
 
+<<<<<<< HEAD
 # Preprocess both the data sets
+=======
+# Preprocess both
+excellent_data <- excellent_data %>%
+  mutate(
+    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
+    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
+    Year = as.factor(Year)
+  )
+
+fair_data <- fair_data %>%
+  mutate(
+    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
+    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
+    Year = as.factor(Year)
+  )
+
+>>>>>>> 6ad75bb6824f3045dbd3769b30fb6969b9ebb53d
 good_data <- good_data %>%
   mutate(
     WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
@@ -25,6 +46,13 @@ good_data <- good_data %>%
   )
 
 poor_data <- poor_data %>%
+  mutate(
+    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
+    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
+    Year = as.factor(Year)
+  )
+
+verypoor_data <- verypoor_data %>%
   mutate(
     WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
     Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
@@ -124,8 +152,11 @@ ui <- fluidPage(
              
              # Tabs for Good and Poor plots
              tabsetPanel(
+               tabPanel("Excellent", plotlyOutput("excellentPlot")),
+               tabPanel("Fair", plotlyOutput("fairPlot")),
                tabPanel("Good", plotlyOutput("goodPlot")),
-               tabPanel("Poor", plotlyOutput("poorPlot"))
+               tabPanel("Poor", plotlyOutput("poorPlot")),
+               tabPanel("Very Poor", plotlyOutput("verypoorPlot"))
              )
     ),
     
@@ -172,6 +203,24 @@ ui <- fluidPage(
 # Server
 server <- function(input, output) {
   
+  filtered_excellent <- reactive({
+    excellent_data %>%
+      filter(
+        Year %in% input$selected_years,
+        WeekNum >= input$weekRange[1],
+        WeekNum <= input$weekRange[2]
+      )
+  })
+  
+  filtered_fair <- reactive({
+    fair_data %>%
+      filter(
+        Year %in% input$selected_years,
+        WeekNum >= input$weekRange[1],
+        WeekNum <= input$weekRange[2]
+      )
+  })
+  
   filtered_good <- reactive({
     good_data %>%
       filter(
@@ -183,6 +232,15 @@ server <- function(input, output) {
   
   filtered_poor <- reactive({
     poor_data %>%
+      filter(
+        Year %in% input$selected_years,
+        WeekNum >= input$weekRange[1],
+        WeekNum <= input$weekRange[2]
+      )
+  })
+  
+  filtered_verypoor <- reactive({
+    verypoor_data %>%
       filter(
         Year %in% input$selected_years,
         WeekNum >= input$weekRange[1],
@@ -221,6 +279,61 @@ server <- function(input, output) {
       tooltip = "text"
     )
   })
+  
+  output$verypoorPlot <- renderPlotly({
+    ggplotly(
+      ggplot(filtered_verypoor(), aes(
+        x = Period, y = Value, color = Year, group = Year,
+        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
+      )) +
+        geom_line(linewidth = 1.2) +
+        geom_point() +
+        labs(
+          title = "Corn Rated 'Very Poor' by Week in Virginia",
+          x = "Week", y = "Percent Rated Very Poor"
+        ) +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
+      tooltip = "text"
+    )
+  })
+  
+  output$excellentPlot <- renderPlotly({
+    ggplotly(
+      ggplot(filtered_excellent(), aes(
+        x = Period, y = Value, color = Year, group = Year,
+        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
+      )) +
+        geom_line(linewidth = 1.2) +
+        geom_point() +
+        labs(
+          title = "Corn Rated 'Excellent' by Week in Virginia",
+          x = "Week", y = "Percent Rated Excellent"
+        ) +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
+      tooltip = "text"
+    )
+  })
+  
+  output$fairPlot <- renderPlotly({
+    ggplotly(
+      ggplot(filtered_fair(), aes(
+        x = Period, y = Value, color = Year, group = Year,
+        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
+      )) +
+        geom_line(linewidth = 1.2) +
+        geom_point() +
+        labs(
+          title = "Corn Rated 'Fair' by Week in Virginia",
+          x = "Week", y = "Percent Rated Fair"
+        ) +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
+      tooltip = "text"
+    )
+  })
+
   
   # Yield data from rnassqs
   yield_data <- reactive({
@@ -292,7 +405,7 @@ server <- function(input, output) {
   # Summary Table
   output$summary_table <- renderTable({
     req(yield_data())
-    
+   
     yield_data() %>%
       group_by(State) %>%
       summarize(
