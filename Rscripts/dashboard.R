@@ -8,6 +8,10 @@ library(ggplot2)
 library(plotly)
 library(rnassqs)
 library(zoo)
+library(leaflet)
+library(sf)
+library(tigris)
+options(tigris_use_cache = TRUE)
 
 # Authenticate the NASS API
 nassqs_auth(key = "E0DE4B3D-0418-32C4-8541-6C4C8954534A") 
@@ -18,11 +22,39 @@ poor_data <- read.csv("PoorCorn.csv")
 verypoor_data <- read.csv("VeryPoorCorn.csv")
 excellent_data <- read.csv("ExcellentCorn.csv")
 fair_data <- read.csv("FairCorn.csv")
+acres_data <- read.csv("AcresPlanted.csv")
+acres_data$Value <- as.numeric(acres_data$Value)
 
-<<<<<<< HEAD
-# Preprocess both the data sets
-=======
-# Preprocess both
+# Preprocess data
+acres_data_clean <- acres_data %>%
+  mutate(
+    County = tolower(County),
+    County = gsub(" county", "", County),
+    County = trimws(County),
+    Year = as.character(Year)
+  ) %>%
+  group_by(County, Year) %>%
+  summarise(Value = sum(Value, na.rm = TRUE), .groups = "drop")
+
+# Fix independent city naming
+acres_data_clean <- acres_data_clean %>%
+  mutate(County = case_when(
+    County == "chesapeake city" ~ "chesapeake",
+    County == "suffolk city" ~ "suffolk",
+    County == "virginia beach city" ~ "virginia beach",
+    TRUE ~ County
+  ))
+
+# Load and prep VA counties shapefile
+va_counties <- counties(state = "VA", cb = TRUE, year = 2023) %>%
+  st_transform(crs = 4326) %>%
+  mutate(
+    County = tolower(NAME),
+    County = gsub(" county", "", County),
+    County = trimws(County)
+  )
+
+
 excellent_data <- excellent_data %>%
   mutate(
     WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
@@ -37,7 +69,6 @@ fair_data <- fair_data %>%
     Year = as.factor(Year)
   )
 
->>>>>>> 6ad75bb6824f3045dbd3769b30fb6969b9ebb53d
 good_data <- good_data %>%
   mutate(
     WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
@@ -104,7 +135,7 @@ ui <- fluidPage(
              p("Use the sidebar to explore planting progress, crop quality, remote sensing, and state comparisons.")
     ),
     
-    tabPanel("Corn Planting Progress",
+    tabPanel("Planting Progress",
              h3("Corn Planting Progress"),
              p("The plot visualizes the growing percentage of corn planted in Virginia over the planting season weeks for the years you select. "),
              p("Each line or point represents a different year, showing how planting progresses week by week. "), 
@@ -164,6 +195,20 @@ ui <- fluidPage(
     tabPanel("Remote Sensing",
              h4("Remote Sensing Placeholder"),
              p("This section will include Remote Sensing data once available.")
+    ),
+    
+    tabPanel("Acres Planted by County",
+             h4("About This Data"),
+             p("This section displays total corn acres planted across Virginia counties from 2021 to 2024, based on survey data from the USDA National Agricultural Statistics Service (NASS). The data reflects reported planting activity by county for each year, offering insight into regional trends in corn cultivation."),
+             p("Some counties or independent cities may not appear in the visualizations due to missing or unreported values in the NASS dataset. Additionally, large urban areas with minimal agricultural production—such as Fairfax or Arlington—are often excluded due to their limited involvement in crop planting."),
+             fluidRow(
+               column(6, h4("2021"), leafletOutput("map_2021", height = "400px")),
+               column(6, h4("2022"), leafletOutput("map_2022", height = "400px"))
+             ),
+             fluidRow(
+               column(6, h4("2023"), leafletOutput("map_2023", height = "400px")),
+               column(6, h4("2024"), leafletOutput("map_2024", height = "400px"))
+             )
     ),
     
     tabPanel("Corn Yield Analysis",
@@ -468,6 +513,84 @@ server <- function(input, output) {
     
     ggplotly(p, tooltip = "text")
   })
+  # Load and clean acres data
+  acres_data <- read.csv("AcresPlanted.csv")
+  acres_data$Value <- as.numeric(acres_data$Value)
+  
+  acres_data_clean <- acres_data %>%
+    mutate(
+      County = tolower(County),
+      County = gsub(" county", "", County),
+      County = trimws(County),
+      Year = as.character(Year)
+    ) %>%
+    group_by(County, Year) %>%
+    summarise(Value = sum(Value, na.rm = TRUE), .groups = "drop") %>%
+    mutate(County = case_when(
+      County == "chesapeake city" ~ "chesapeake",
+      County == "suffolk city" ~ "suffolk",
+      County == "virginia beach city" ~ "virginia beach",
+      TRUE ~ County
+    ))
+  
+  va_counties <- counties(state = "VA", cb = TRUE, year = 2023) %>%
+    st_transform(crs = 4326) %>%
+    mutate(
+      County = tolower(NAME),
+      County = gsub(" county", "", County),
+      County = trimws(County)
+    )
+  
+  # Generate maps for each year
+  years <- c("2021", "2022", "2023", "2024")
+  for (yr in years) {
+    local({
+      year <- yr
+      map_id <- paste0("map_", year)
+      
+      year_data <- acres_data_clean %>%
+        filter(Year == year)
+      
+      map_data <- left_join(va_counties, year_data, by = "County") %>%
+        st_as_sf()
+      
+      values <- map_data$Value
+      
+      pal <- if (length(unique(values[!is.na(values)])) > 1) {
+        colorBin("YlGn", domain = values, bins = 5, na.color = "#f0f0f0")
+      } else {
+        colorBin("YlGn", domain = c(0, 1), bins = 5, na.color = "#f0f0f0")
+      }
+      
+      output[[map_id]] <- renderLeaflet({
+        leaflet(map_data) %>%
+          addProviderTiles("CartoDB.Positron") %>%
+          addPolygons(
+            fillColor = ~pal(Value),
+            color = "black",
+            weight = 1,
+            fillOpacity = 0.7,
+            label = ~paste0(
+              "<strong>", toupper(County), "</strong><br>",
+              "Acres Planted: ", ifelse(is.na(Value), "N/A", formatC(Value, format = "f", big.mark = ",", digits = 0))
+            ) %>% lapply(htmltools::HTML),
+            highlightOptions = highlightOptions(
+              weight = 2,
+              color = "#666",
+              fillOpacity = 0.9,
+              bringToFront = TRUE
+            )
+          ) %>%
+          addLegend("bottomright",
+                    pal = pal,
+                    values = values,
+                    title = "Acres Planted",
+                    opacity = 1
+          ) %>%
+          setView(lng = -78.6569, lat = 37.4316, zoom = 6)
+      })
+    })
+  }
 }
 
 # Run the shiny app 
