@@ -223,3 +223,34 @@ server <- function(input, output) {
 
 # Run App
 shinyApp(ui = ui, server = server)
+
+
+#API stuff
+library(rnassqs)
+library(dplyr)
+library(ggplot2)
+
+nassqs_auth(key = "E0DE4B3D-0418-32C4-8541-6C4C8954534A")
+
+corn_conditions_2025 <- nassqs(list(
+  commodity_desc = "CORN",
+  year = "2025",
+  state_name = "VIRGINIA",
+  statisticcat_desc = "CONDITION",
+  agg_level_desc = "STATE"
+))
+
+corn_conditions_clean <- corn_conditions_2025 %>%
+  filter(unit_desc %in% c("PCT EXCELLENT", "PCT GOOD", "PCT FAIR", "PCT POOR", "PCT VERY POOR")) %>%
+  mutate(
+    week = as.Date(week_ending),
+    value = as.numeric(Value)
+  )
+
+ggplot(corn_conditions_clean, aes(x = week, y = value, color = unit_desc, group = unit_desc)) +
+  geom_line(size = 1.2) +
+  labs(title = "2025 Virginia Corn Conditions",
+       x = "Week Ending",
+       y = "Percentage",
+       color = "Condition") +
+  theme_minimal()
