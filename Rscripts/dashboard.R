@@ -595,4 +595,3 @@ server <- function(input, output) {
 
 # Run the shiny app 
 shinyApp(ui = ui, server = server)
-
