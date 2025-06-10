@@ -1,4 +1,3 @@
-
 #This data set is from the USDA survey and represents 
 #crop conditions of corn that were measured in a good year in weekly Virginia from 2021-2024
 data = read.csv("GoodCorn.csv")
@@ -246,6 +245,7 @@ corn_conditions_clean <- corn_conditions_2025 %>%
     week = as.Date(week_ending),
     value = as.numeric(Value)
   )
+corn_conditions_clean 
 
 ggplot(corn_conditions_clean, aes(x = week, y = value, color = unit_desc, group = unit_desc)) +
   geom_line(size = 1.2) +
@@ -254,3 +254,71 @@ ggplot(corn_conditions_clean, aes(x = week, y = value, color = unit_desc, group 
        y = "Percentage",
        color = "Condition") +
   theme_minimal()
+
+
+#shiny
+library(shiny)
+library(plotly)
+library(dplyr)
+desired_order <- c("PCT VERY POOR", "PCT POOR", "PCT FAIR", "PCT GOOD", "PCT EXCELLENT")
+corn_conditions_clean$unit_desc <- factor(
+  corn_conditions_clean$unit_desc,
+  levels = desired_order
+)
+
+condition_colors <- c(
+  "PCT VERY POOR" = "#a50026",
+  "PCT POOR"      = "#d73027",
+  "PCT FAIR"      = "#fee08b",
+  "PCT GOOD"      = "#66bd63",
+  "PCT EXCELLENT" = "#1a9850"
+)
+
+ui <- fluidPage(
+  tags$head(
+    tags$style(HTML("
+      .container {background-color: #fafafa; border-radius: 25px; padding: 30px;}
+      h2 {color: #1a9850; font-family: 'Montserrat', sans-serif;}
+    "))
+  ),
+  div(class = "container",
+      titlePanel(h2("2025 Virginia Corn Conditions", style = "font-weight:600;")),
+      mainPanel(
+        plotlyOutput("stacked_area", height = "600px")
+      )
+  )
+)
+
+server <- function(input, output) {
+  output$stacked_area <- renderPlotly({
+    plot_ly(
+      corn_conditions_clean %>% arrange(week, unit_desc),
+      x = ~week,
+      y = ~value,
+      color = ~unit_desc,
+      colors = condition_colors,
+      type = "scatter",
+      mode = "none",
+      stackgroup = "one",
+      fill = "tonexty",
+      text = ~paste0(
+        "<b>Week:</b> ", format(week, "%b %d, %Y"),
+        "<br><b>Condition:</b> ", gsub("PCT ", "", unit_desc),
+        "<br><b>Percent:</b> ", value, "%"
+      ),
+      hoverinfo = "text"
+    ) %>%
+      layout(
+        xaxis = list(title = "Week Ending", tickfont = list(size=16, family="Montserrat")),
+        yaxis = list(title = "Percent", range = c(0, 100), tickfont = list(size=16, family="Montserrat")),
+        legend = list(title = list(text = "<b>Condition</b>"), font=list(size=16)),
+        plot_bgcolor = "#fafafa",
+        paper_bgcolor = "#fafafa",
+        font = list(family = "Montserrat", size = 15)
+      )
+  })
+}
+
+shinyApp(ui, server)
+
+#adding more years
