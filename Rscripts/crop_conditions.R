@@ -322,3 +322,106 @@ server <- function(input, output) {
 shinyApp(ui, server)
 
 #adding more years
+library(shiny)
+library(plotly)
+library(dplyr)
+library(rnassqs)
+
+# Authenticate
+nassqs_auth(key = "E0DE4B3D-0418-32C4-8541-6C4C8954534A")
+
+# Function to pull and clean data
+get_corn_data <- function(year) {
+  nassqs(list(
+    commodity_desc = "CORN",
+    year = year,
+    state_name = "VIRGINIA",
+    statisticcat_desc = "CONDITION",
+    agg_level_desc = "STATE"
+  )) %>%
+    filter(unit_desc %in% c("PCT EXCELLENT", "PCT GOOD", "PCT FAIR", "PCT POOR", "PCT VERY POOR")) %>%
+    mutate(
+      week = as.Date(week_ending),
+      value = as.numeric(Value),
+      condition = gsub("PCT ", "", unit_desc),  # Clean legend label
+      condition = factor(condition, levels = c("VERY POOR", "POOR", "FAIR", "GOOD", "EXCELLENT")),
+      unit_desc = factor(unit_desc, levels = c("PCT VERY POOR", "PCT POOR", "PCT FAIR", "PCT GOOD", "PCT EXCELLENT")),
+      year = as.character(year)
+    )
+}
+
+# Load data for all years
+corn_data_list <- lapply(2021:2025, get_corn_data)
+names(corn_data_list) <- as.character(2021:2025)
+
+# Define consistent colors
+condition_colors <- c(
+  "VERY POOR" = "#a50026",
+  "POOR" = "#d73027",
+  "FAIR" = "#fee08b",
+  "GOOD" = "#66bd63",
+  "EXCELLENT" = "#1a9850"
+)
+
+# Build list of tab panels (outside tabsetPanel)
+tabs <- lapply(names(corn_data_list), function(yr) {
+  tabPanel(yr, plotlyOutput(paste0("plot_", yr), height = "600px"))
+})
+
+# UI
+ui <- fluidPage(
+  tags$head(
+    tags$style(HTML("
+      .container {background-color: #fafafa; border-radius: 25px; padding: 30px;}
+      h2 {color: #1a9850; font-family: 'Montserrat', sans-serif;}
+    "))
+  ),
+  div(class = "container",
+      titlePanel(h2("Virginia Corn Conditions by Year (2021–2025)", style = "font-weight:600;")),
+      do.call(tabsetPanel, tabs)
+  )
+)
+
+# Server
+server <- function(input, output) {
+  render_plot <- function(data) {
+    plot_ly(
+      data %>% arrange(week, unit_desc),
+      x = ~week,
+      y = ~value,
+      color = ~condition,
+      colors = condition_colors,
+      type = "scatter",
+      mode = "none",
+      stackgroup = "one",
+      fill = "tonexty",
+      text = ~paste0(
+        "<b>Week:</b> ", format(week, "%b %d, %Y"),
+        "<br><b>Condition:</b> ", condition,
+        "<br><b>Percent:</b> ", value, "%"
+      ),
+      hoverinfo = "text"
+    ) %>%
+      layout(
+        xaxis = list(title = "Week Ending", tickfont = list(size = 16, family = "Montserrat")),
+        yaxis = list(title = "Percent", range = c(0, 100), tickfont = list(size = 16, family = "Montserrat")),
+        legend = list(title = list(text = "<b>Condition</b>"), font = list(size = 16)),
+        plot_bgcolor = "#fafafa",
+        paper_bgcolor = "#fafafa",
+        font = list(family = "Montserrat", size = 15)
+      )
+  }
+  
+  # Dynamically assign each plot output
+  for (yr in names(corn_data_list)) {
+    local({
+      year <- yr
+      output[[paste0("plot_", year)]] <- renderPlotly({
+        render_plot(corn_data_list[[year]])
+      })
+    })
+  }
+}
+
+shinyApp(ui, server)
+

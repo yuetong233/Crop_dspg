@@ -16,12 +16,36 @@ options(tigris_use_cache = TRUE)
 # Authenticate the NASS API
 nassqs_auth(key = "E0DE4B3D-0418-32C4-8541-6C4C8954534A") 
 
-# Load the good and poor corn data
-good_data <- read.csv("GoodCorn.csv")
-poor_data <- read.csv("PoorCorn.csv")
-verypoor_data <- read.csv("VeryPoorCorn.csv")
-excellent_data <- read.csv("ExcellentCorn.csv")
-fair_data <- read.csv("FairCorn.csv")
+get_corn_data <- function(year) {
+  nassqs(list(
+    commodity_desc = "CORN",
+    year = year,
+    state_name = "VIRGINIA",
+    statisticcat_desc = "CONDITION",
+    agg_level_desc = "STATE"
+  )) %>%
+    filter(unit_desc %in% c("PCT EXCELLENT", "PCT GOOD", "PCT FAIR", "PCT POOR", "PCT VERY POOR")) %>%
+    mutate(
+      week = as.Date(week_ending),
+      value = as.numeric(Value),
+      condition = gsub("PCT ", "", unit_desc),
+      condition = factor(condition, levels = c("VERY POOR", "POOR", "FAIR", "GOOD", "EXCELLENT")),
+      unit_desc = factor(unit_desc, levels = c("PCT VERY POOR", "PCT POOR", "PCT FAIR", "PCT GOOD", "PCT EXCELLENT")),
+      year = as.character(year)
+    )
+}
+
+corn_data_list <- lapply(2021:2025, get_corn_data)
+names(corn_data_list) <- as.character(2021:2025)
+
+condition_colors <- c(
+  "VERY POOR" = "#a50026",
+  "POOR" = "#d73027",
+  "FAIR" = "#fee08b",
+  "GOOD" = "#66bd63",
+  "EXCELLENT" = "#1a9850"
+)
+
 acres_data <- read.csv("AcresPlanted.csv")
 acres_data$Value <- as.numeric(acres_data$Value)
 
@@ -55,71 +79,34 @@ va_counties <- counties(state = "VA", cb = TRUE, year = 2023) %>%
   )
 
 
-excellent_data <- excellent_data %>%
-  mutate(
-    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
-    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
-    Year = as.factor(Year)
-  )
-
-fair_data <- fair_data %>%
-  mutate(
-    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
-    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
-    Year = as.factor(Year)
-  )
-
-good_data <- good_data %>%
-  mutate(
-    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
-    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
-    Year = as.factor(Year)
-  )
-
-poor_data <- poor_data %>%
-  mutate(
-    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
-    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
-    Year = as.factor(Year)
-  )
-
-verypoor_data <- verypoor_data %>%
-  mutate(
-    WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
-    Period = factor(Period, levels = unique(Period[order(as.numeric(gsub("[^0-9]", "", Period)))])),
-    Year = as.factor(Year)
-  )
-
 # UI
 ui <- fluidPage(
   theme = bs_theme(bootswatch = "flatly"),
   tags$head(
     tags$style(HTML("
-    h1, h2, h3, h4 {
-      color: #2e7d32;  /* Dark green */
-      font-weight: bold;
-    }
-  "))
+      h1, h2, h3, h4 {
+        color: #2e7d32;  /* Dark green */
+        font-weight: bold;
+      }
+    "))
   ),
-  
   tags$head(
     tags$style(HTML("
-    .title-box {
-      background-color: #e8f5e9;  /* soft pale green */
-      padding: 20px;
-      border: 2px solid #2e7d32;
-      border-radius: 12px;
-      margin-bottom: 30px;
-      text-align: center;
-    }
+      .title-box {
+        background-color: #e8f5e9;  /* soft pale green */
+        padding: 20px;
+        border: 2px solid #2e7d32;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        text-align: center;
+      }
 
-    .title-box h1 {
-      color: #2e7d32;
-      margin: 0;
-    }
-  "))
+      .title-box h1 {
+        color: #2e7d32;
+        margin: 0;
+      }
+    "))
   ),
-  
   
   div(class = "title-box",
       h1("Planting Progress and Crop Condition Interactive Dashboard")
@@ -137,9 +124,10 @@ ui <- fluidPage(
     
     tabPanel("Planting Progress",
              h3("Corn Planting Progress"),
-             p("The plot visualizes the growing percentage of corn planted in Virginia over the planting season weeks for the years you select. "),
-             p("Each line or point represents a different year, showing how planting progresses week by week. "), 
+             p("The plot visualizes the growing percentage of corn planted in Virginia over the planting season weeks for the years you select."),
+             p("Each line or point represents a different year, showing how planting progresses week by week."),
              p("The visualization helps to compare planting pace across different years, to identify trends and understand how current progress lines up with historical patterns."),
+             
              # Controls
              fluidRow(
                column(6,
@@ -151,8 +139,8 @@ ui <- fluidPage(
                ),
                column(6,
                       sliderInput("planting_date_range", "Select Date Range:",
-                                  min = as.Date("2021-04-01"), # Assuming planting starts around April 1st
-                                  max = as.Date("2024-07-31"), # Assuming planting finishes by end of July
+                                  min = as.Date("2021-04-01"),
+                                  max = as.Date("2024-07-31"),
                                   value = c(as.Date("2024-04-01"), as.Date("2024-07-31")),
                                   timeFormat = "%Y-%m-%d")
                )
@@ -163,34 +151,13 @@ ui <- fluidPage(
     ),
     
     tabPanel("Crop Conditions",
-             # Reference paragraph
              h4("About This Data"),
-             p("This section presents weekly crop condition data for corn in Virginia from 2021 to 2024, sourced from the USDA National Agricultural Statistics Service (NASS). The data is based on survey responses evaluating crop health, categorized into five condition levels: Excellent, Good, Fair, Poor, and Very Poor."),
-             p("Weekly observations span Week 19 to Week 38, which approximately correspond to the months of mid-May through mid-September. These ratings offer insight into how Virginia's corn crops performed throughout the growing season each year."),
-             
-             # Filters
-             pickerInput("selected_years", "Select Year(s):",
-                         choices = levels(good_data$Year),
-                         selected = levels(good_data$Year),
-                         multiple = TRUE,
-                         options = list(`actions-box` = TRUE)),
-             
-             sliderInput("weekRange", "Select Week Range:",
-                         min = min(good_data$WeekNum, na.rm = TRUE),
-                         max = max(good_data$WeekNum, na.rm = TRUE),
-                         value = c(min(good_data$WeekNum, na.rm = TRUE), max(good_data$WeekNum, na.rm = TRUE)),
-                         step = 1, sep = ""),
-             
-             # Tabs for Good and Poor plots
-             tabsetPanel(
-               tabPanel("Excellent", plotlyOutput("excellentPlot")),
-               tabPanel("Fair", plotlyOutput("fairPlot")),
-               tabPanel("Good", plotlyOutput("goodPlot")),
-               tabPanel("Poor", plotlyOutput("poorPlot")),
-               tabPanel("Very Poor", plotlyOutput("verypoorPlot"))
-             )
+             p("This section presents weekly crop condition data for corn in Virginia from 2021 to 2025, sourced directly from the USDA NASS API."),
+             h4("Select a year below to view weekly stacked area conditions:"),
+             do.call(tabsetPanel, lapply(names(corn_data_list), function(yr) {
+               tabPanel(yr, plotlyOutput(paste0("plot_", yr), height = "600px"))
+             }))
     ),
-    
     
     tabPanel("Remote Sensing",
              h4("Remote Sensing Placeholder"),
@@ -214,7 +181,6 @@ ui <- fluidPage(
     tabPanel("Corn Yield Analysis",
              h3("Corn Yield Analysis"),
              p("Explore corn yield trends across Virginia and neighboring states."),
-             
              fluidRow(
                column(4,
                       pickerInput("yield_states", "Select States:",
@@ -231,153 +197,60 @@ ui <- fluidPage(
                                   step = 1)
                ),
                column(4,
-                      numericInput("ma_window", "Moving Average Window:",
-                                   value = 5, min = 2, max = 10)
+                      numericInput("ma_window", "Moving Average Window:", value = 5, min = 2, max = 10)
                )
              ),
-             
              tabsetPanel(
                tabPanel("Yield Trends", plotlyOutput("yield_plot")),
                tabPanel("Year-over-Year Changes", plotlyOutput("yoy_plot")),
                tabPanel("Summary Statistics", tableOutput("summary_table"))
              )
     )
-  )
-)
+  ) 
+)  
+
 
 # Server
 server <- function(input, output) {
   
-  filtered_excellent <- reactive({
-    excellent_data %>%
-      filter(
-        Year %in% input$selected_years,
-        WeekNum >= input$weekRange[1],
-        WeekNum <= input$weekRange[2]
+  render_plot <- function(data) {
+    plot_ly(
+      data %>% arrange(week, unit_desc),
+      x = ~week,
+      y = ~value,
+      color = ~condition,
+      colors = condition_colors,
+      type = "scatter",
+      mode = "none",
+      stackgroup = "one",
+      fill = "tonexty",
+      text = ~paste0(
+        "<b>Week:</b> ", format(week, "%b %d, %Y"),
+        "<br><b>Condition:</b> ", condition,
+        "<br><b>Percent:</b> ", value, "%"
+      ),
+      hoverinfo = "text"
+    ) %>%
+      layout(
+        xaxis = list(title = "Week Ending", tickfont = list(size = 16, family = "Montserrat")),
+        yaxis = list(title = "Percent", range = c(0, 100), tickfont = list(size = 16, family = "Montserrat")),
+        legend = list(title = list(text = "<b>Condition</b>"), font = list(size = 16)),
+        plot_bgcolor = "#fafafa",
+        paper_bgcolor = "#fafafa",
+        font = list(family = "Montserrat", size = 15)
       )
-  })
+  }
   
-  filtered_fair <- reactive({
-    fair_data %>%
-      filter(
-        Year %in% input$selected_years,
-        WeekNum >= input$weekRange[1],
-        WeekNum <= input$weekRange[2]
-      )
-  })
+  # Dynamically assign outputs
+  for (yr in names(corn_data_list)) {
+    local({
+      year <- yr
+      output[[paste0("plot_", year)]] <- renderPlotly({
+        render_plot(corn_data_list[[year]])
+      })
+    })
+  }
   
-  filtered_good <- reactive({
-    good_data %>%
-      filter(
-        Year %in% input$selected_years,
-        WeekNum >= input$weekRange[1],
-        WeekNum <= input$weekRange[2]
-      )
-  })
-  
-  filtered_poor <- reactive({
-    poor_data %>%
-      filter(
-        Year %in% input$selected_years,
-        WeekNum >= input$weekRange[1],
-        WeekNum <= input$weekRange[2]
-      )
-  })
-  
-  filtered_verypoor <- reactive({
-    verypoor_data %>%
-      filter(
-        Year %in% input$selected_years,
-        WeekNum >= input$weekRange[1],
-        WeekNum <= input$weekRange[2]
-      )
-  })
-  
-  output$goodPlot <- renderPlotly({
-    ggplotly(
-      ggplot(filtered_good(), aes(
-        x = Period, y = Value, color = Year, group = Year,
-        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
-      )) +
-        geom_line(linewidth = 1.2) +
-        geom_point() +
-        labs(title = "Corn Rated 'Good' by Week in Virginia",
-             x = "Week", y = "Percent Rated Good") +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
-      tooltip = "text"
-    )
-  })
-  
-  output$poorPlot <- renderPlotly({
-    ggplotly(
-      ggplot(filtered_poor(), aes(
-        x = Period, y = Value, color = Year, group = Year,
-        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
-      )) +
-        geom_line(linewidth = 1.2) +
-        geom_point() +
-        labs(title = "Corn Rated 'Poor' by Week in Virginia",
-             x = "Week", y = "Percent Rated Poor") +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
-      tooltip = "text"
-    )
-  })
-  
-  output$verypoorPlot <- renderPlotly({
-    ggplotly(
-      ggplot(filtered_verypoor(), aes(
-        x = Period, y = Value, color = Year, group = Year,
-        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
-      )) +
-        geom_line(linewidth = 1.2) +
-        geom_point() +
-        labs(
-          title = "Corn Rated 'Very Poor' by Week in Virginia",
-          x = "Week", y = "Percent Rated Very Poor"
-        ) +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
-      tooltip = "text"
-    )
-  })
-  
-  output$excellentPlot <- renderPlotly({
-    ggplotly(
-      ggplot(filtered_excellent(), aes(
-        x = Period, y = Value, color = Year, group = Year,
-        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
-      )) +
-        geom_line(linewidth = 1.2) +
-        geom_point() +
-        labs(
-          title = "Corn Rated 'Excellent' by Week in Virginia",
-          x = "Week", y = "Percent Rated Excellent"
-        ) +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
-      tooltip = "text"
-    )
-  })
-  
-  output$fairPlot <- renderPlotly({
-    ggplotly(
-      ggplot(filtered_fair(), aes(
-        x = Period, y = Value, color = Year, group = Year,
-        text = paste("Year:", Year, "<br>Week:", Period, "<br>Value:", Value)
-      )) +
-        geom_line(linewidth = 1.2) +
-        geom_point() +
-        labs(
-          title = "Corn Rated 'Fair' by Week in Virginia",
-          x = "Week", y = "Percent Rated Fair"
-        ) +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 8)),
-      tooltip = "text"
-    )
-  })
 
   
   # Yield data from rnassqs
