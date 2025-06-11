@@ -116,3 +116,133 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
+
+#API stuff
+#No report for 2025 until end of 2026
+library(shiny)
+library(leaflet)
+library(dplyr)
+library(tigris)
+library(sf)
+library(rnassqs)
+
+# Authenticate
+nassqs_auth("E0DE4B3D-0418-32C4-8541-6C4C8954534A")
+options(tigris_use_cache = TRUE)
+
+# Load counties
+va_counties <- counties(state = "VA", cb = TRUE, year = 2023) %>%
+  st_transform(4326) %>%
+  mutate(
+    County = tolower(NAME),
+    County = gsub(" county", "", County),
+    County = trimws(County)
+  )
+
+# Get years and data
+years <- 2021:2025
+get_acres_county <- function(year) {
+  tryCatch({
+    df <- nassqs(list(
+      commodity_desc = "CORN",
+      statisticcat_desc = "AREA PLANTED",
+      unit_desc = "ACRES",
+      state_name = "VIRGINIA",
+      agg_level_desc = "COUNTY",
+      source_desc = "SURVEY",
+      year = as.character(year)
+    ))
+    df$Year <- as.character(year)
+    df
+  }, error = function(e) NULL)
+}
+
+raw_data <- bind_rows(lapply(years, get_acres_county)) %>%
+  filter(!is.na(county_name)) %>%
+  mutate(
+    County = tolower(county_name),
+    County = gsub(" county", "", County),
+    County = trimws(County),
+    County = case_when(
+      County == "chesapeake city" ~ "chesapeake",
+      County == "suffolk city" ~ "suffolk",
+      County == "virginia beach city" ~ "virginia beach",
+      TRUE ~ County
+    ),
+    Value = as.numeric(Value)
+  ) %>%
+  group_by(County, Year) %>%
+  summarise(Value = sum(Value, na.rm = TRUE), .groups = "drop")
+
+# UI
+ui <- fluidPage(
+  titlePanel("Corn Acres Planted by County in Virginia"),
+  h4("Explore how many acres of corn were planted across Virginia counties by year."),
+  p("Click a year below to view a map of planting activity. 2025 data will appear when it's available from USDA NASS."),
+  fluidRow(
+    lapply(years, function(yr) {
+      column(2, actionButton(inputId = paste0("btn_", yr), label = yr))
+    })
+  ),
+  br(),
+  leafletOutput("acres_map", height = "600px")
+)
+
+# Server
+server <- function(input, output, session) {
+  selected_year <- reactiveVal("2024")
+  
+  lapply(years, function(yr) {
+    observeEvent(input[[paste0("btn_", yr)]], {
+      selected_year(as.character(yr))
+    })
+  })
+  
+  output$acres_map <- renderLeaflet({
+    year <- selected_year()
+    year_data <- raw_data %>% filter(Year == year)
+    
+    if (nrow(year_data) == 0) {
+      leaflet() %>%
+        addProviderTiles("CartoDB.Positron") %>%
+        addLabelOnlyMarkers(
+          lng = -78.6569, lat = 37.5,
+          label = paste("County-level data not available yet for", year),
+          labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE)
+        ) %>%
+        setView(lng = -78.6569, lat = 37.5, zoom = 6)
+    } else {
+      map_data <- left_join(va_counties, year_data, by = "County") %>% st_as_sf()
+      values <- map_data$Value
+      
+      pal <- if (length(unique(na.omit(values))) > 1) {
+        colorBin("YlGn", domain = values, bins = 5, na.color = "#f0f0f0")
+      } else {
+        colorBin("YlGn", domain = c(0, 1), bins = 5, na.color = "#f0f0f0")
+      }
+      
+      leaflet(map_data) %>%
+        addProviderTiles("CartoDB.Positron") %>%
+        addPolygons(
+          fillColor = ~pal(Value),
+          color = "black",
+          weight = 1,
+          fillOpacity = 0.7,
+          label = ~paste0(
+            "<strong>", toupper(County), "</strong><br>",
+            "Acres Planted: ", ifelse(is.na(Value), "N/A", formatC(Value, format = "f", big.mark = ",", digits = 0))
+          ) %>% lapply(htmltools::HTML),
+          highlightOptions = highlightOptions(
+            weight = 2, color = "#666", fillOpacity = 0.9, bringToFront = TRUE
+          )
+        ) %>%
+        addLegend("bottomright", pal = pal, values = values, title = "Acres Planted", opacity = 1) %>%
+        setView(lng = -78.6569, lat = 37.5, zoom = 6)
+    }
+  })
+}
+
+shinyApp(ui, server)
+
+#adding area harvested 
