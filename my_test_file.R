@@ -55,12 +55,6 @@ va_counties <- counties(state = "VA", cb = TRUE, year = 2023) %>%
   )
 
 
-
-#<<<<<<< HEAD
-# Preprocess both the data sets
-
-# Preprocess both
-
 excellent_data <- excellent_data %>%
   mutate(
     WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
@@ -601,4 +595,3 @@ server <- function(input, output) {
 
 # Run the shiny app 
 shinyApp(ui = ui, server = server)
-

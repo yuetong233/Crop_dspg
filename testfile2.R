@@ -55,12 +55,6 @@ va_counties <- counties(state = "VA", cb = TRUE, year = 2023) %>%
   )
 
 
-
-#<<<<<<< HEAD
-# Preprocess both the data sets
-
-# Preprocess both
-
 excellent_data <- excellent_data %>%
   mutate(
     WeekNum = as.numeric(gsub("[^0-9]", "", Period)),
@@ -384,7 +378,7 @@ server <- function(input, output) {
       tooltip = "text"
     )
   })
-
+  
   
   # Yield data from rnassqs
   yield_data <- reactive({
@@ -456,7 +450,7 @@ server <- function(input, output) {
   # Summary Table
   output$summary_table <- renderTable({
     req(yield_data())
-   
+    
     yield_data() %>%
       group_by(State) %>%
       summarize(
@@ -601,4 +595,3 @@ server <- function(input, output) {
 
 # Run the shiny app 
 shinyApp(ui = ui, server = server)
-
