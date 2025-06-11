@@ -272,3 +272,7 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
+
+names(raw_data)
+
