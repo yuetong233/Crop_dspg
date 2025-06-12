@@ -425,3 +425,4 @@ server <- function(input, output) {
 
 shinyApp(ui, server)
 
+#adding MD and NC

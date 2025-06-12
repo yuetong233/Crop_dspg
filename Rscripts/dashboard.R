@@ -189,7 +189,6 @@ ui <- fluidPage(
              h4("About This Data"),
              p("This section presents weekly corn crop condition data in Virginia from 2021 to 2025, retrieved directly from the USDA National Agricultural Statistics Service (NASS) API. The 2025 data reflects current weekly updates and will continue to populate as the growing season progresses."),
              p("The visualization below uses a stacked area chart, where each color band represents a condition category—from 'Very Poor' in red to 'Excellent' in green—providing a clear view of how crop quality shifts week to week throughout the season."),
-             h4("Select a year below to view weekly stacked area conditions:"),
              do.call(tabsetPanel, lapply(names(corn_data_list), function(yr) {
                tabPanel(yr, plotlyOutput(paste0("plot_", yr), height = "600px"))
              }))
