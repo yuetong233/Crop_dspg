@@ -479,7 +479,7 @@ server <- function(input, output) {
       )
   })
   
-<<<<<<< HEAD
+
 #Planting Progress 
   for (yr in 2021:(as.numeric(format(Sys.Date(), "%Y")))) {
     local({
@@ -506,7 +506,7 @@ server <- function(input, output) {
       })
     })
   }
-=======
+
   # Corn planting progress data
   planting_data <- reactive({
     req(input$planting_years, input$planting_date_range)
@@ -558,7 +558,6 @@ server <- function(input, output) {
     
     ggplotly(p, tooltip = "text")
   })
->>>>>>> bd2425acd3d741af8eb066bfcc2f256b56f68fc0
 }
 
 # Run the shiny app 
