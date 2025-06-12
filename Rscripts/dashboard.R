@@ -1,4 +1,6 @@
 #Dashboard
+
+#Libraries
 library(shiny)
 library(shinyWidgets)
 library(bslib)
@@ -15,10 +17,9 @@ options(tigris_use_cache = TRUE)
 
 #API Key
 nassqs_auth(key = "E0DE4B3D-0418-32C4-8541-6C4C8954534A") 
-options(tigris_use_cache = TRUE)
-
 
 #Processing Data and Cleaning it
+
 #Crop Conditions
 get_corn_data <- function(year) {
   nassqs(list(
@@ -114,6 +115,35 @@ clean_data <- raw_data %>%
   )
 
 
+#Planting Progress
+get_year_data <- function(year) {
+  tryCatch({
+    data <- nassqs(list(
+      source_desc = "SURVEY",
+      sector_desc = "CROPS",
+      group_desc = "FIELD CROPS",
+      commodity_desc = "CORN",
+      statisticcat_desc = "PROGRESS",
+      unit_desc = "PCT PLANTED",
+      state_name = "VIRGINIA",
+      year = year
+    ))
+    
+    if (nrow(data) == 0) return(NULL)
+    
+    data %>%
+      mutate(
+        week = as.Date(week_ending),
+        value = as.numeric(Value),
+        year = as.character(year)
+      ) %>%
+      filter(!is.na(week)) %>%
+      arrange(week)
+  }, error = function(e) NULL)
+}
+
+
+
 # UI
 ui <- fluidPage(
   theme = bs_theme(bootswatch = "flatly"),
@@ -158,31 +188,17 @@ ui <- fluidPage(
     ),
     
     tabPanel("Planting Progress",
-             h3("Corn Planting Progress"),
-             p("The plot visualizes the growing percentage of corn planted in Virginia over the planting season weeks for the years you select."),
-             p("Each line or point represents a different year, showing how planting progresses week by week."),
-             p("The visualization helps to compare planting pace across different years, to identify trends and understand how current progress lines up with historical patterns."),
-             
-             # Controls
-             fluidRow(
-               column(6,
-                      pickerInput("planting_years", "Select Year(s):",
-                                  choices = c("2021", "2022", "2023", "2024", as.character(as.numeric(format(Sys.Date(), "%Y")) + 1)),
-                                  selected = c("2024"),
-                                  multiple = TRUE,
-                                  options = list(`actions-box` = TRUE))
-               ),
-               column(6,
-                      sliderInput("planting_date_range", "Select Date Range:",
-                                  min = as.Date("2021-04-01"),
-                                  max = as.Date("2024-07-31"),
-                                  value = c(as.Date("2024-04-01"), as.Date("2024-07-31")),
-                                  timeFormat = "%Y-%m-%d")
-               )
-             ),
-             
-             # Output
-             plotlyOutput("planting_plot")
+             h4("About This Data"),
+             p("This section presents weekly corn planting progress data in Virginia from 2021 to the current year, retrieved directly from the USDA National Agricultural Statistics Service (NASS) API."),
+             p("The 2025 data reflects current weekly updates and will continue to populate automatically throughout the planting season as new reports are released."),
+             p("The visualization below displays each year separately using a tabbed layout, allowing users to explore and compare planting pace week by week."),
+             br(),
+             do.call(tabsetPanel, c(
+               list(id = "year_tabs", type = "tabs"),
+               lapply(as.character(2021:(as.numeric(format(Sys.Date(), "%Y")))), function(yr) {
+                 tabPanel(yr, plotlyOutput(outputId = paste0("plot2_", yr), height = "500px"))
+               })
+             ))
     ),
     
     tabPanel("Crop Conditions",
@@ -241,8 +257,9 @@ ui <- fluidPage(
                tabPanel("Summary Statistics", tableOutput("summary_table"))
              )
     )
-  ) 
-)  
+  )
+)
+ 
 
 
 # Server
@@ -434,132 +451,29 @@ server <- function(input, output) {
       )
   })
   
-  # Corn planting progress data
-  planting_data <- reactive({
-    req(input$planting_years, input$planting_date_range)
-    
-    all_data <- lapply(input$planting_years, function(year) {
-      nassqs(list(
-        source_desc = "SURVEY",
-        sector_desc = "CROPS",
-        group_desc = "FIELD CROPS",
-        commodity_desc = "CORN",
-        statisticcat_desc = "PROGRESS",
-        unit_desc = "PCT PLANTED",
-        state_name = "VIRGINIA",
-        year = year
-      ))
-    })
-    
-    # Combine data and preprocess
-    combined_data <- do.call(rbind, all_data)
-    
-    combined_data %>%
-      mutate(week = as.Date(week_ending),
-             value = as.numeric(Value)) %>%
-      filter(!is.na(week)) %>% # Filter out rows with NA weeks after conversion
-      arrange(year, week) %>%
-      filter(week >= input$planting_date_range[1], # Filter by selected date range
-             week <= input$planting_date_range[2])
-  })
-  
-  # Corn planting progress plot
-  output$planting_plot <- renderPlotly({
-    req(planting_data())
-    
-    p <- ggplot(planting_data(), aes(x = week, y = value, color = factor(year), group = factor(year),
-                                     text = paste("Year:", year, "<br>Week Ending:", week, "<br>% Planted:", value)))
-    
-    # Check if there's more than one year selected to draw lines
-    if (length(unique(planting_data()$year)) > 1) {
-      p <- p + geom_line(size = 1.2)
-    }
-    
-    p <- p + geom_point(size = 2) +
-      labs(title = "Corn Planting Progress in Virginia",
-           y = "% Planted",
-           x = "Week Ending",
-           color = "Year") +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    
-    ggplotly(p, tooltip = "text")
-  })
-  # Load and clean acres data
-  acres_data <- read.csv("AcresPlanted.csv")
-  acres_data$Value <- as.numeric(acres_data$Value)
-  
-  acres_data_clean <- acres_data %>%
-    mutate(
-      County = tolower(County),
-      County = gsub(" county", "", County),
-      County = trimws(County),
-      Year = as.character(Year)
-    ) %>%
-    group_by(County, Year) %>%
-    summarise(Value = sum(Value, na.rm = TRUE), .groups = "drop") %>%
-    mutate(County = case_when(
-      County == "chesapeake city" ~ "chesapeake",
-      County == "suffolk city" ~ "suffolk",
-      County == "virginia beach city" ~ "virginia beach",
-      TRUE ~ County
-    ))
-  
-  va_counties <- counties(state = "VA", cb = TRUE, year = 2023) %>%
-    st_transform(crs = 4326) %>%
-    mutate(
-      County = tolower(NAME),
-      County = gsub(" county", "", County),
-      County = trimws(County)
-    )
-  
-  # Generate maps for each year
-  years <- c("2021", "2022", "2023", "2024")
-  for (yr in years) {
+#Planting Progress 
+  for (yr in 2021:(as.numeric(format(Sys.Date(), "%Y")))) {
     local({
-      year <- yr
-      map_id <- paste0("map_", year)
-      
-      year_data <- acres_data_clean %>%
-        filter(Year == year)
-      
-      map_data <- left_join(va_counties, year_data, by = "County") %>%
-        st_as_sf()
-      
-      values <- map_data$Value
-      
-      pal <- if (length(unique(values[!is.na(values)])) > 1) {
-        colorBin("YlGn", domain = values, bins = 5, na.color = "#f0f0f0")
-      } else {
-        colorBin("YlGn", domain = c(0, 1), bins = 5, na.color = "#f0f0f0")
-      }
-      
-      output[[map_id]] <- renderLeaflet({
-        leaflet(map_data) %>%
-          addProviderTiles("CartoDB.Positron") %>%
-          addPolygons(
-            fillColor = ~pal(Value),
-            color = "black",
-            weight = 1,
-            fillOpacity = 0.7,
-            label = ~paste0(
-              "<strong>", toupper(County), "</strong><br>",
-              "Acres Planted: ", ifelse(is.na(Value), "N/A", formatC(Value, format = "f", big.mark = ",", digits = 0))
-            ) %>% lapply(htmltools::HTML),
-            highlightOptions = highlightOptions(
-              weight = 2,
-              color = "#666",
-              fillOpacity = 0.9,
-              bringToFront = TRUE
-            )
-          ) %>%
-          addLegend("bottomright",
-                    pal = pal,
-                    values = values,
-                    title = "Acres Planted",
-                    opacity = 1
-          ) %>%
-          setView(lng = -78.6569, lat = 37.4316, zoom = 6)
+      year_inner <- yr
+      output[[paste0("plot2_", year_inner)]] <- renderPlotly({
+        data <- get_year_data(year_inner)
+        req(data)
+        
+        p <- ggplot(data, aes(x = week, y = value)) +
+          geom_line(color = "#2e7d32", size = 1.4) +
+          geom_point(color = "#66bb6a", size = 2.5) +
+          labs(
+            title = paste("Corn Planting Progress for", year_inner),
+            x = "Week Ending",
+            y = "% Planted"
+          ) +
+          theme_minimal() +
+          theme(
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            plot.title = element_text(size = 16)
+          )
+        
+        ggplotly(p, tooltip = c("x", "y"))
       })
     })
   }
