@@ -241,11 +241,12 @@ ui <- fluidPage(
                                   options = list(`actions-box` = TRUE))
                ),
                column(4,
-                      sliderInput("yield_year_range", "Select Year Range:",
-                                  min = 2000,
-                                  max = as.numeric(format(Sys.Date(), "%Y")),
-                                  value = c(as.numeric(format(Sys.Date(), "%Y")) - 10, as.numeric(format(Sys.Date(), "%Y"))),
-                                  step = 1)
+                      sliderInput("yoy_year_slider", "Select Year:",
+                                  min = 2015,
+                                  max = 2023,
+                                  value = 2023,
+                                  step = 1,
+                                  sep = "")
                ),
                column(4,
                       numericInput("ma_window", "Moving Average Window:", value = 5, min = 2, max = 10)
@@ -303,16 +304,16 @@ server <- function(input, output) {
     })
   }
   
-
+  
   
   # Yield data from rnassqs
   yield_data <- reactive({
-    req(input$yield_states, input$yield_year_range)
+    req(input$yield_states)
     
     all_data <- lapply(input$yield_states, function(state) {
       nassqs(list(
         commodity_desc = "CORN",
-        year = seq(input$yield_year_range[1], input$yield_year_range[2]),
+        year = 2015:2023, # Fetch data for the full range of years to calculate YoY changes
         agg_level_desc = "COUNTY",
         state_alpha = state,
         statisticcat_desc = "YIELD"
@@ -413,33 +414,60 @@ server <- function(input, output) {
         setView(lng = -78.6569, lat = 37.5, zoom = 6)
     }
   })
-
+  
   # alter the plot 
   output$yoy_plot <- renderPlotly({
-    req(yield_data())
+    req(yield_data(), input$yoy_year_slider)
     
-    yoy_changes <- yield_data() %>%
-      group_by(State, county_name) %>%
-      arrange(State, county_name, year) %>%
-      mutate(yoy_change_pct = (Value - lag(Value)) / lag(Value) * 100)
+    yoy_changes<-yield_data() %>% 
+      group_by(State, county_name) %>% 
+      arrange(State, county_name) %>% 
+      mutate(yoy_change_pct = (Value - lag(Value)) / lag(Value) * 100) %>% 
+      filter(!is.na(yoy_change_pct)) %>% 
+      group_by(State, year) %>% 
+      summarise(yoy_change_pct = mean(yoy_change_pct, na.rm = TRUE), .groups = "drop") %>% 
+      filter(year == input$yoy_year_slider)
     
-    p <- ggplot(yoy_changes, aes(x = year, y = yoy_change_pct, fill = State)) +
-      geom_boxplot(alpha = 0.7) +
-      theme_minimal() +
-      labs(
-        title = "Year-over-Year Change in Corn Yields",
-        subtitle = "Percentage Change by State",
-        x = "Year",
-        y = "Percentage Change"
+    #adding the highlights and the corn emoji lable
+    yoy_changes <- yoy_changes %>% 
+      group_by(year) %>% 
+      mutate(
+        is_max = yoy_change_pct == max(yoy_change_pct, na.rm = TRUE),
+        label = paste0("\U1F33D ", round(yoy_change_pct, 1), "%")
+      )
+    p <- yoy_changes %>% 
+      plot_ly(
+        x = ~State,
+        y = ~yoy_change_pct,
+        type = 'bar',
+        text = ~label,
+        textposition = 'outside',
+        color = ~State,
+        colors = c("VA" = "#FFD700", "NC" = "#FFC107", "MD" = "#FFB300"),
+        hoverinfo = 'text',
+        marker = list(
+          line = list(
+            width = ~ifelse(is_max, 4, 1),
+            color = ~ifelse(is_max, '#4CAF50', 'black')
+          )
+        )
+      ) %>% 
+      layout(
+        title = list(text = "Year-over-Year Corn Yield Change by State", font = list(size = 22)),
+        yaxis = list(title = "YoY % Change", range = c(-50, 50)),
+        xaxis = list(title = "State"),
+        showlegend = FALSE,
+        plot_bgcolor = '#fef9e7',
+        paper_bgcolor = '#fef9e7'
       )
     
-    ggplotly(p)
+    return(p)
   })
   
   # Summary Table
   output$summary_table <- renderTable({
     req(yield_data())
-   
+    
     yield_data() %>%
       group_by(State) %>%
       summarize(
@@ -451,6 +479,7 @@ server <- function(input, output) {
       )
   })
   
+<<<<<<< HEAD
 #Planting Progress 
   for (yr in 2021:(as.numeric(format(Sys.Date(), "%Y")))) {
     local({
@@ -477,6 +506,59 @@ server <- function(input, output) {
       })
     })
   }
+=======
+  # Corn planting progress data
+  planting_data <- reactive({
+    req(input$planting_years, input$planting_date_range)
+    
+    all_data <- lapply(input$planting_years, function(year) {
+      nassqs(list(
+        source_desc = "SURVEY",
+        sector_desc = "CROPS",
+        group_desc = "FIELD CROPS",
+        commodity_desc = "CORN",
+        statisticcat_desc = "PROGRESS",
+        unit_desc = "PCT PLANTED",
+        state_name = "VIRGINIA",
+        year = year
+      ))
+    })
+    
+    # Combine data and preprocess
+    combined_data <- do.call(rbind, all_data)
+    
+    combined_data %>%
+      mutate(week = as.Date(week_ending),
+             value = as.numeric(Value)) %>%
+      filter(!is.na(week)) %>% # Filter out rows with NA weeks after conversion
+      arrange(year, week) %>%
+      filter(week >= input$planting_date_range[1], # Filter by selected date range
+             week <= input$planting_date_range[2])
+  })
+  
+  # Corn planting progress plot
+  output$planting_plot <- renderPlotly({
+    req(planting_data())
+    
+    p <- ggplot(planting_data(), aes(x = week, y = value, color = factor(year), group = factor(year),
+                                     text = paste("Year:", year, "<br>Week Ending:", week, "<br>% Planted:", value)))
+    
+    # Check if there's more than one year selected to draw lines
+    if (length(unique(planting_data()$year)) > 1) {
+      p <- p + geom_line(size = 1.2)
+    }
+    
+    p <- p + geom_point(size = 2) +
+      labs(title = "Corn Planting Progress in Virginia",
+           y = "% Planted",
+           x = "Week Ending",
+           color = "Year") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    ggplotly(p, tooltip = "text")
+  })
+>>>>>>> bd2425acd3d741af8eb066bfcc2f256b56f68fc0
 }
 
 # Run the shiny app 
