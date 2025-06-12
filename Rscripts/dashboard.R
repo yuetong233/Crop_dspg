@@ -304,8 +304,6 @@ server <- function(input, output) {
     })
   }
   
-  
-  
   # Yield data from rnassqs
   yield_data <- reactive({
     req(input$yield_states)
