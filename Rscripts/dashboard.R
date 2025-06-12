@@ -187,7 +187,8 @@ ui <- fluidPage(
     
     tabPanel("Crop Conditions",
              h4("About This Data"),
-             p("This section presents weekly crop condition data for corn in Virginia from 2021 to 2025, sourced directly from the USDA NASS API."),
+             p("This section presents weekly corn crop condition data in Virginia from 2021 to 2025, retrieved directly from the USDA National Agricultural Statistics Service (NASS) API. The 2025 data reflects current weekly updates and will continue to populate as the growing season progresses."),
+             p("The visualization below uses a stacked area chart, where each color band represents a condition category—from 'Very Poor' in red to 'Excellent' in green—providing a clear view of how crop quality shifts week to week throughout the season."),
              h4("Select a year below to view weekly stacked area conditions:"),
              do.call(tabsetPanel, lapply(names(corn_data_list), function(yr) {
                tabPanel(yr, plotlyOutput(paste0("plot_", yr), height = "600px"))
@@ -201,8 +202,9 @@ ui <- fluidPage(
     
     tabPanel("County Analysis",
              h4("About This Data"),
-             p("This section displays total corn acres planted across Virginia counties from 2021 to 2024, based on survey data from the USDA National Agricultural Statistics Service (NASS). The data reflects reported planting activity by county for each year, offering insight into regional trends in corn cultivation."),
-             p("Some counties or independent cities may not appear in the visualizations due to missing or unreported values in the NASS dataset. Additionally, large urban areas with minimal agricultural production—such as Fairfax or Arlington—are often excluded due to their limited involvement in crop planting."),
+             p("This section displays total corn acres planted and harvested across Virginia, Maryland, and North Carolina, based on real-time data from the USDA National Agricultural Statistics Service (NASS) API. The data automatically updates as new information becomes available, including the 2025 crop conditions once they are released later this year."),
+             p("Here, you can explore the amount of corn acres planted, the amount harvested, and the percent harvested, calculated directly from reported figures for each state. This provides insight into regional planting and harvesting activity over time."),
+             p("Please note that some counties or independent cities may not appear in the visualizations due to missing or unreported values in the NASS dataset. Additionally, urban areas such as Fairfax or Arlington are often excluded due to their limited involvement in crop production."),
              fluidRow(
                lapply(years, function(yr) {
                  column(2, actionButton(paste0("btn_", yr), label = yr))
