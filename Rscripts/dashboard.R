@@ -143,6 +143,26 @@ get_year_data <- function(year) {
 }
 
 
+#Yield Analysis
+yield_data <- reactive({
+  req(input$yield_states)
+  
+  all_data <- lapply(input$yield_states, function(state) {
+    nassqs(list(
+      commodity_desc = "CORN",
+      year = 2015:2023,
+      agg_level_desc = "COUNTY",
+      state_alpha = state,
+      statisticcat_desc = "YIELD"
+    ))
+  })
+  
+  do.call(rbind, Map(function(data, state) {
+    data %>% mutate(State = state)
+  }, all_data, input$yield_states))
+})
+
+
 
 # UI
 ui <- fluidPage(
@@ -151,6 +171,7 @@ ui <- fluidPage(
     tags$style(HTML("
       h1, h2, h3, h4 {
         color: #2e7d32;  /* Dark green */
+        font-family: 'Times New Roman', Times, serif !important;
         font-weight: bold;
       }
     "))
@@ -229,34 +250,37 @@ ui <- fluidPage(
              leafletOutput("compare_map", height = "600px")
     ),
     
-    tabPanel("Corn Yield Analysis",
-             h3("Corn Yield Analysis"),
-             p("Explore corn yield trends across Virginia and neighboring states."),
-             fluidRow(
-               column(4,
-                      pickerInput("yield_states", "Select States:",
-                                  choices = c("Virginia" = "VA", "North Carolina" = "NC", "Maryland" = "MD"),
-                                  selected = c("VA", "NC", "MD"),
-                                  multiple = TRUE,
-                                  options = list(`actions-box` = TRUE))
-               ),
-               column(4,
-                      sliderInput("yoy_year_slider", "Select Year:",
-                                  min = 2015,
-                                  max = 2023,
-                                  value = 2023,
-                                  step = 1,
-                                  sep = "")
-               ),
-               column(4,
-                      numericInput("ma_window", "Moving Average Window:", value = 5, min = 2, max = 10)
-               )
-             ),
-             tabsetPanel(
-               tabPanel("Yield Trends", plotlyOutput("yield_plot")),
-               tabPanel("Year-over-Year Changes", plotlyOutput("yoy_plot")),
-               tabPanel("Summary Statistics", tableOutput("summary_table"))
-             )
+    tabPanel("Yield Analysis",
+             h4("About This Data"),
+             p("This dashboard presents an analysis of corn crop yield across Virginia, North Carolina, and Maryland from 2015 to 2023. 
+   The data is sourced from the USDA's National Agricultural Statistics Service (NASS) API and includes county-level statistics on corn yield (bushels per acre). 
+   Interactive graphics allow users to explore average yields over time, moving averages, and year-over-year changes."),
+   
+            fluidRow(
+              column(4,
+               pickerInput("yield_states", "Select States:",
+                        choices = c("Virginia" = "VA", "North Carolina" = "NC", "Maryland" = "MD"),
+                        selected = c("VA", "NC", "MD"), multiple = TRUE,
+                        options = list(`actions-box` = TRUE))
+     ),
+     column(4,
+            sliderInput("yoy_year_slider", "Select Year:",
+                        min = 2015, max = 2023, value = 2023, step = 1, sep = "")
+     ),
+     column(4,
+            numericInput("ma_window", "Moving Average Window:", value = 5, min = 2, max = 10)
+     )
+   ),
+   
+   h4("Summary Statistics"),
+   div(style = "margin-bottom:-30px;", plotlyOutput("summary_card")),
+   
+   h4("Yield Trends Over Time"),
+   plotlyOutput("yield_plot"),
+   
+   br(),
+   h4("Year-over-Year Yield Change"),
+   plotlyOutput("yoy_plot")
     )
   )
 )
@@ -265,89 +289,149 @@ ui <- fluidPage(
 
 # Server
 server <- function(input, output) {
-  
-  render_plot <- function(data) {
-    plot_ly(
-      data %>% arrange(week, unit_desc),
-      x = ~week,
-      y = ~value,
-      color = ~condition,
-      colors = condition_colors,
-      type = "scatter",
-      mode = "none",
-      stackgroup = "one",
-      fill = "tonexty",
-      text = ~paste0(
-        "<b>Week:</b> ", format(week, "%b %d, %Y"),
-        "<br><b>Condition:</b> ", condition,
-        "<br><b>Percent:</b> ", value, "%"
-      ),
-      hoverinfo = "text"
-    ) %>%
-      layout(
-        xaxis = list(title = "Week Ending", tickfont = list(size = 16, family = "Montserrat")),
-        yaxis = list(title = "Percent", range = c(0, 100), tickfont = list(size = 16, family = "Montserrat")),
-        legend = list(title = list(text = "<b>Condition</b>"), font = list(size = 16)),
-        plot_bgcolor = "#fafafa",
-        paper_bgcolor = "#fafafa",
-        font = list(family = "Montserrat", size = 15)
-      )
-  }
-  
-  # Dynamically assign outputs
-  for (yr in names(corn_data_list)) {
-    local({
-      year <- yr
-      output[[paste0("plot_", year)]] <- renderPlotly({
-        render_plot(corn_data_list[[year]])
+
+    yield_data <- reactive({
+      req(input$yield_states)
+      
+      all_data <- lapply(input$yield_states, function(state) {
+        nassqs(list(
+          commodity_desc = "CORN",
+          year = 2015:2023,
+          agg_level_desc = "COUNTY",
+          state_alpha = state,
+          statisticcat_desc = "YIELD"
+        ))
+      })
+      
+      do.call(rbind, Map(function(data, state) {
+        data %>% mutate(State = state)
+      }, all_data, input$yield_states))
+    })
+    
+    # --- Crop Condition Plots ---
+    lapply(names(corn_data_list), function(yr) {
+      output[[paste0("plot_", yr)]] <- renderPlotly({
+        df <- corn_data_list[[yr]]
+        
+        # 🔁 Reapply factor level to lock order
+        df$condition <- factor(df$condition, levels = c("VERY POOR", "POOR", "FAIR", "GOOD", "EXCELLENT"))
+        
+        plot_ly(
+          data = df %>% arrange(week, condition),
+          x = ~week,
+          y = ~value,
+          color = ~condition,
+          colors = condition_colors,
+          type = "scatter",
+          mode = "none",
+          stackgroup = "one",
+          fill = "tonexty",
+          text = ~paste0(
+            "<b>Week:</b> ", format(week, "%b %d, %Y"),
+            "<br><b>Condition:</b> ", condition,
+            "<br><b>Percent:</b> ", value, "%"
+          ),
+          hoverinfo = "text"
+        ) %>%
+          layout(
+            title = list(text = paste("Virginia Corn Conditions in", yr)),
+            xaxis = list(title = "Week Ending"),
+            yaxis = list(title = "Percent", range = c(0, 100)),
+            legend = list(title = list(text = "Condition")),
+            plot_bgcolor = "#fafafa",
+            paper_bgcolor = "#fafafa"
+          )
       })
     })
-  }
+    
+    
+    
   
-  # Yield data from rnassqs
-  yield_data <- reactive({
-    req(input$yield_states)
+  # --- Summary Card ---
+  output$summary_card <- renderPlotly({
+    req(yield_data())
+    df <- yield_data() %>%
+      group_by(State) %>%
+      summarise(
+        `Average Yield` = mean(Value, na.rm = TRUE),
+        `Max Yield` = max(Value, na.rm = TRUE),
+        `Min Yield` = min(Value, na.rm = TRUE),
+        `Yield Std Dev` = sd(Value, na.rm = TRUE)
+      )
     
-    all_data <- lapply(input$yield_states, function(state) {
-      nassqs(list(
-        commodity_desc = "CORN",
-        year = 2015:2023, # Fetch data for the full range of years to calculate YoY changes
-        agg_level_desc = "COUNTY",
-        state_alpha = state,
-        statisticcat_desc = "YIELD"
-      ))
-    })
-    
-    do.call(rbind, Map(function(data, state) {
-      data %>% mutate(State = state)
-    }, all_data, input$yield_states))
+    plot_ly(
+      type = 'table',
+      header = list(values = c("State", names(df)[-1]), align = 'center',
+                    fill = list(color = '#a5d6a7'), font = list(size = 14)),
+      cells = list(
+        values = rbind(df$State,
+                       format(round(df[[2]], 1), nsmall = 1),
+                       format(df[[3]], big.mark=","),
+                       format(df[[4]], big.mark=","),
+                       round(df[[5]], 1)),
+        align = 'center', height = 30
+      )
+    )
   })
   
-  # Yield Trend Plot
+  # --- Yield Trends Plot ---
   output$yield_plot <- renderPlotly({
     req(yield_data())
     
-    state_year_avg <- yield_data() %>%
+    df <- yield_data() %>%
       group_by(State, year) %>%
-      summarize(avg_yield = mean(Value, na.rm = TRUE)) %>%
+      summarise(avg_yield = mean(Value, na.rm = TRUE), .groups = "drop") %>%
       group_by(State) %>%
       mutate(moving_avg = zoo::rollmean(avg_yield, k = input$ma_window, fill = NA, align = "right"))
     
-    p <- ggplot(state_year_avg, aes(x = year, y = avg_yield, color = State)) +
-      geom_line(size = 1.2) +
-      geom_line(aes(y = moving_avg, linetype = "Moving Avg"), size = 1.2) +
-      geom_point(size = 2) +
-      theme_minimal() +
-      labs(
-        title = "Statewide Corn Yield Trends",
-        subtitle = "Annual Average and Moving Average by State",
-        x = "Year",
-        y = "Average Yield (bushels per acre)"
-      ) +
-      scale_linetype_manual(values = c("Moving Avg" = "dashed"))
-    
-    ggplotly(p)
+    plot_ly(data = df, x = ~year, y = ~avg_yield, color = ~State, type = 'scatter', mode = 'lines+markers',
+            name = ~paste(State, "Avg")) %>%
+      add_lines(y = ~moving_avg, linetype = I("dash"), name = ~paste(State, "Moving Avg")) %>%
+      layout(
+        title = list(text = "Statewide Corn Yield Trends", font = list(family = "Times New Roman")),
+        xaxis = list(title = "Year"),
+        yaxis = list(title = "Average Yield (bushels per acre)"),
+        plot_bgcolor = '#ffffff',
+        paper_bgcolor = '#ffffff'
+      )
   })
+  
+  # --- Year-over-Year Change Plot ---
+  output$yoy_plot <- renderPlotly({
+    req(yield_data(), input$yoy_year_slider)
+    
+    yoy <- yield_data() %>%
+      group_by(State, county_name) %>%
+      arrange(State, county_name, year) %>%
+      mutate(yoy_change_pct = (Value - lag(Value)) / lag(Value) * 100) %>%
+      filter(!is.na(yoy_change_pct)) %>%
+      group_by(State, year) %>%
+      summarise(yoy_change_pct = mean(yoy_change_pct, na.rm = TRUE), .groups = "drop") %>%
+      filter(year == input$yoy_year_slider) %>%
+      mutate(is_max = yoy_change_pct == max(yoy_change_pct),
+             label = paste0(round(yoy_change_pct, 1), "%"))
+    
+    plot_ly(
+      data = yoy,
+      x = ~yoy_change_pct,
+      y = ~State,
+      type = 'bar',
+      orientation = 'h',
+      text = ~label,
+      textposition = 'outside',
+      marker = list(
+        color = ~ifelse(is_max, '#81c784', '#aed581'),
+        line = list(width = ~ifelse(is_max, 4, 1), color = 'black')
+      )
+    ) %>% layout(
+      title = "Year-over-Year Corn Yield Change by State",
+      xaxis = list(title = "YoY % Change"),
+      yaxis = list(title = "State"),
+      plot_bgcolor = '#ffffff',
+      paper_bgcolor = '#ffffff'
+    )
+  })
+  
   
   selected_year <- reactiveVal("2024")
   
@@ -411,70 +495,6 @@ server <- function(input, output) {
         addLegend("bottomright", pal = pal, values = values, title = "Acres Planted", opacity = 1) %>%
         setView(lng = -78.6569, lat = 37.5, zoom = 6)
     }
-  })
-  
-  # alter the plot 
-  output$yoy_plot <- renderPlotly({
-    req(yield_data(), input$yoy_year_slider)
-    
-    yoy_changes<-yield_data() %>% 
-      group_by(State, county_name) %>% 
-      arrange(State, county_name) %>% 
-      mutate(yoy_change_pct = (Value - lag(Value)) / lag(Value) * 100) %>% 
-      filter(!is.na(yoy_change_pct)) %>% 
-      group_by(State, year) %>% 
-      summarise(yoy_change_pct = mean(yoy_change_pct, na.rm = TRUE), .groups = "drop") %>% 
-      filter(year == input$yoy_year_slider)
-    
-    #adding the highlights and the corn emoji lable
-    yoy_changes <- yoy_changes %>% 
-      group_by(year) %>% 
-      mutate(
-        is_max = yoy_change_pct == max(yoy_change_pct, na.rm = TRUE),
-        label = paste0("\U1F33D ", round(yoy_change_pct, 1), "%")
-      )
-    p <- yoy_changes %>% 
-      plot_ly(
-        x = ~State,
-        y = ~yoy_change_pct,
-        type = 'bar',
-        text = ~label,
-        textposition = 'outside',
-        color = ~State,
-        colors = c("VA" = "#FFD700", "NC" = "#FFC107", "MD" = "#FFB300"),
-        hoverinfo = 'text',
-        marker = list(
-          line = list(
-            width = ~ifelse(is_max, 4, 1),
-            color = ~ifelse(is_max, '#4CAF50', 'black')
-          )
-        )
-      ) %>% 
-      layout(
-        title = list(text = "Year-over-Year Corn Yield Change by State", font = list(size = 22)),
-        yaxis = list(title = "YoY % Change", range = c(-50, 50)),
-        xaxis = list(title = "State"),
-        showlegend = FALSE,
-        plot_bgcolor = '#fef9e7',
-        paper_bgcolor = '#fef9e7'
-      )
-    
-    return(p)
-  })
-  
-  # Summary Table
-  output$summary_table <- renderTable({
-    req(yield_data())
-    
-    yield_data() %>%
-      group_by(State) %>%
-      summarize(
-        avg_yield = mean(Value, na.rm = TRUE),
-        max_yield = max(Value, na.rm = TRUE),
-        min_yield = min(Value, na.rm = TRUE),
-        yield_range = max_yield - min_yield,
-        yield_std = sd(Value, na.rm = TRUE)
-      )
   })
   
 
