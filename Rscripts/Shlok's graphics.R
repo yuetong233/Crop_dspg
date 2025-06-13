@@ -96,8 +96,19 @@ nassqs_auth(key = "E0DE4B3D-0418-32C4-8541-6C4C8954534A")
 
 # --- UI ---
 ui <- fluidPage(
-  titlePanel("🌽 Corn Yield Analysis"),
-  p("Compare corn yield statistics across Virginia, North Carolina, and Maryland using real-time USDA NASS data."),
+  tags$head(
+    tags$style(HTML("
+      * {
+        font-family: 'Times New Roman', Times, serif !important;
+      }
+    "))
+  ),
+  titlePanel("Corn Yield Analysis"),
+  
+  h4("About This Data"),
+  p("This dashboard presents an analysis of corn crop yield across Virginia, North Carolina, and Maryland from 2015 to 2023. 
+     The data is sourced from the USDA's National Agricultural Statistics Service (NASS) API and includes county-level statistics on corn yield (bushels per acre). 
+     Interactive graphics allow users to explore average yields over time, moving averages, and year-over-year changes."),
   
   fluidRow(
     column(4,
@@ -114,16 +125,15 @@ ui <- fluidPage(
     )
   ),
   
-  br(),
-  h4("📊 Summary Statistics"),
-  plotlyOutput("summary_card"),
+  h4("Summary Statistics"),
+  div(style = "margin-bottom:-30px;", plotlyOutput("summary_card")),  # reduces the gap caused by the table
   
-  br(),
-  h4("📈 Yield Trends Over Time"),
+  h4("Yield Trends Over Time"),
   plotlyOutput("yield_plot"),
   
+  
   br(),
-  h4("📉 Year-over-Year Yield Change"),
+  h4("Year-over-Year Yield Change"),
   plotlyOutput("yoy_plot")
 )
 
@@ -174,25 +184,20 @@ server <- function(input, output, session) {
     
     df <- yield_data() %>%
       group_by(State, year) %>%
-      summarise(avg_yield = mean(Value, na.rm = TRUE)) %>%
+      summarise(avg_yield = mean(Value, na.rm = TRUE), .groups = "drop") %>%
       group_by(State) %>%
       mutate(moving_avg = zoo::rollmean(avg_yield, k = input$ma_window, fill = NA, align = "right"))
     
-    p <- ggplot(df, aes(x = year, y = avg_yield, color = State)) +
-      geom_line(size = 1.2) +
-      geom_line(aes(y = moving_avg, linetype = "Moving Avg"), size = 1.2) +
-      geom_point(size = 2) +
-      theme_minimal() +
-      labs(
-        title = "Statewide Corn Yield Trends",
-        subtitle = "Annual Average and Moving Average by State",
-        x = "Year",
-        y = "Average Yield (bushels per acre)"
-      ) +
-      scale_linetype_manual(values = c("Moving Avg" = "dashed"))
-    
-    ggplotly(p)
+    plot_ly(data = df, x = ~year, y = ~avg_yield, color = ~State, type = 'scatter', mode = 'lines+markers',
+            name = ~paste(State, "Avg")) %>%
+      add_lines(y = ~moving_avg, linetype = I("dash"), name = ~paste(State, "Moving Avg")) %>%
+      layout(title = list(text = "Statewide Corn Yield Trends", font = list(family = "Times New Roman")),
+             xaxis = list(title = "Year"),
+             yaxis = list(title = "Average Yield (bushels per acre)"),
+             plot_bgcolor = '#ffffff',
+             paper_bgcolor = '#ffffff')
   })
+  
   
   # --- Year-over-Year Change Plot ---
   output$yoy_plot <- renderPlotly({
@@ -225,11 +230,12 @@ server <- function(input, output, session) {
       title = "Year-over-Year Corn Yield Change by State",
       xaxis = list(title = "YoY % Change"),
       yaxis = list(title = "State"),
-      plot_bgcolor = '#fef9e7',
-      paper_bgcolor = '#fef9e7'
+      plot_bgcolor = '#ffffff',
+      paper_bgcolor = '#ffffff'
     )
   })
 }
 
 # --- Run App ---
 shinyApp(ui, server)
+
