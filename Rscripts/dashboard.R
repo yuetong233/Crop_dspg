@@ -210,17 +210,25 @@ ui <- fluidPage(
     
     tabPanel("Planting Progress",
              h4("About This Data"),
-             p("This section presents weekly corn planting progress data in Virginia from 2021 to the current year, retrieved directly from the USDA National Agricultural Statistics Service (NASS) API."),
-             p("The 2025 data reflects current weekly updates and will continue to populate automatically throughout the planting season as new reports are released."),
-             p("The visualization below displays each year separately using a tabbed layout, allowing users to explore and compare planting pace week by week."),
+             p("This section presents weekly corn planting progress in Virginia from 2021 through the current year, sourced directly from the USDA National Agricultural Statistics Service (NASS) API."),
+             p("Each year includes two visualizations shown side by side: one displays the actual weekly percentage of corn planted, and the other compares that year's progress with the historical 5-year average for the same state."),
+             p("This comparison helps identify whether planting activity is ahead of or behind typical seasonal trends, offering insight into how conditions such as weather or labor might affect planting progress."),
+             p("Please note that the current year's planting progress and the 5-year average may not begin on the exact same calendar week. This is due to differences in USDA reporting schedules or when planting activity begins in a given year."),
+             p("All data updates automatically as new weekly reports are released by NASS."),
              br(),
              do.call(tabsetPanel, c(
                list(id = "year_tabs", type = "tabs"),
                lapply(as.character(2021:(as.numeric(format(Sys.Date(), "%Y")))), function(yr) {
-                 tabPanel(yr, plotlyOutput(outputId = paste0("plot2_", yr), height = "500px"))
+                 tabPanel(yr,
+                          fluidRow(
+                            column(6, plotlyOutput(outputId = paste0("plot_actual_", yr))),
+                            column(6, plotlyOutput(outputId = paste0("plot_compare_", yr)))
+                          )
+                 )
                })
              ))
     ),
+    
     
     tabPanel("Crop Conditions",
              h4("About This Data"),
@@ -499,83 +507,74 @@ server <- function(input, output) {
   
 
 #Planting Progress 
-  for (yr in 2021:(as.numeric(format(Sys.Date(), "%Y")))) {
-    local({
-      year_inner <- yr
-      output[[paste0("plot2_", year_inner)]] <- renderPlotly({
-        data <- get_year_data(year_inner)
-        req(data)
-        
-        p <- ggplot(data, aes(x = week, y = value)) +
-          geom_line(color = "#2e7d32", size = 1.4) +
-          geom_point(color = "#66bb6a", size = 2.5) +
-          labs(
-            title = paste("Corn Planting Progress for", year_inner),
-            x = "Week Ending",
-            y = "% Planted"
-          ) +
-          theme_minimal() +
-          theme(
-            axis.text.x = element_text(angle = 45, hjust = 1),
-            plot.title = element_text(size = 16)
-          )
-        
-        ggplotly(p, tooltip = c("x", "y"))
-      })
-    })
-  }
-
-  # Corn planting progress data
-  planting_data <- reactive({
-    req(input$planting_years, input$planting_date_range)
-    
-    all_data <- lapply(input$planting_years, function(year) {
+  get_avg_data <- function(year) {
+    tryCatch({
       nassqs(list(
         source_desc = "SURVEY",
         sector_desc = "CROPS",
         group_desc = "FIELD CROPS",
         commodity_desc = "CORN",
-        statisticcat_desc = "PROGRESS",
+        statisticcat_desc = "PROGRESS, 5 YEAR AVG",
         unit_desc = "PCT PLANTED",
         state_name = "VIRGINIA",
         year = year
-      ))
-    })
-    
-    # Combine data and preprocess
-    combined_data <- do.call(rbind, all_data)
-    
-    combined_data %>%
-      mutate(week = as.Date(week_ending),
-             value = as.numeric(Value)) %>%
-      filter(!is.na(week)) %>% # Filter out rows with NA weeks after conversion
-      arrange(year, week) %>%
-      filter(week >= input$planting_date_range[1], # Filter by selected date range
-             week <= input$planting_date_range[2])
-  })
+      )) %>%
+        mutate(week = as.Date(week_ending),
+               value = as.numeric(Value),
+               type = "5-Year Avg") %>%
+        filter(!is.na(week)) %>%
+        arrange(week)
+    }, error = function(e) NULL)
+  }
   
-  # Corn planting progress plot
-  output$planting_plot <- renderPlotly({
-    req(planting_data())
-    
-    p <- ggplot(planting_data(), aes(x = week, y = value, color = factor(year), group = factor(year),
-                                     text = paste("Year:", year, "<br>Week Ending:", week, "<br>% Planted:", value)))
-    
-    # Check if there's more than one year selected to draw lines
-    if (length(unique(planting_data()$year)) > 1) {
-      p <- p + geom_line(size = 1.2)
-    }
-    
-    p <- p + geom_point(size = 2) +
-      labs(title = "Corn Planting Progress in Virginia",
-           y = "% Planted",
-           x = "Week Ending",
-           color = "Year") +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))
-    
-    ggplotly(p, tooltip = "text")
-  })
+  for (yr in 2021:(as.numeric(format(Sys.Date(), "%Y")))) {
+    local({
+      year_inner <- yr
+      
+      # Actual planting progress only
+      output[[paste0("plot_actual_", year_inner)]] <- renderPlotly({
+        data <- get_year_data(year_inner)
+        req(data)
+        p <- ggplot(data, aes(x = week, y = value)) +
+          geom_line(color = "#2e7d32", size = 1.4) +
+          geom_point(color = "#66bb6a", size = 2.5) +
+          labs(
+            title = paste( "Actual Planting Progress —", year_inner),
+            x = "Week Ending",
+            y = "% Planted"
+          ) +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                plot.title = element_text(size = 16, face = "bold"))
+        ggplotly(p, tooltip = c("x", "y"))
+      })
+      
+      # Comparison with 5-year average
+      output[[paste0("plot_compare_", year_inner)]] <- renderPlotly({
+        current <- get_year_data(year_inner)
+        avg <- get_avg_data(year_inner)
+        req(current, avg)
+        combined <- bind_rows(
+          current %>% mutate(type = "Current"),
+          avg
+        )
+        p <- ggplot(combined, aes(x = week, y = value, color = type)) +
+          geom_line(size = 1.4) +
+          geom_point(size = 2.5) +
+          labs(
+            title = paste(year_inner, "vs 5-Year Avg"),
+            x = "Week Ending",
+            y = "% Planted",
+            color = "Type"
+          ) +
+          scale_color_manual(values = c("Current" = "#1b5e20", "5-Year Avg" = "#a5d6a7")) +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                plot.title = element_text(size = 16, face = "bold"))
+        ggplotly(p, tooltip = c("x", "y", "color"))
+      })
+    })
+  }
 }
 
 # Run the shiny app 
