@@ -539,7 +539,7 @@ server <- function(input, output) {
             bringToFront = TRUE
           )
         ) %>%
-        addLegend("bottomright", pal = pal, values = values, title = "Acres Planted", opacity = 1) %>%
+        addLegend("bottomright", pal = pal, values = values, title = "Number of Acres", opacity = 1) %>%
         setView(lng = -78.6569, lat = 37.5, zoom = 6)
     }
   })
