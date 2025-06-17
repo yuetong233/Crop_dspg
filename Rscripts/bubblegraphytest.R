@@ -126,16 +126,6 @@ clean_data <- raw_data %>%
 
 
 #Planting Progress
-years <- 2021:(as.numeric(format(Sys.Date(), "%Y")))
-categories <- c(
-  "PCT PLANTED", "PCT EMERGED", "PCT SILKING", "PCT DOUGH",
-  "PCT MATURE", "PCT HARVESTED", "PCT DENTED"
-)
-clean_title <- function(cat) {
-  gsub("^PCT ", "", cat)
-}
-
-# Function to get actual weekly planting progress
 get_year_data <- function(year) {
   tryCatch({
     data <- nassqs(list(
@@ -148,6 +138,9 @@ get_year_data <- function(year) {
       state_name = "VIRGINIA",
       year = year
     ))
+    
+    if (nrow(data) == 0) return(NULL)
+    
     data %>%
       mutate(
         week = as.Date(week_ending),
@@ -158,31 +151,6 @@ get_year_data <- function(year) {
       arrange(week)
   }, error = function(e) NULL)
 }
-
-# Function to get 5-year average planting progress
-get_avg_data <- function(year) {
-  tryCatch({
-    avg_data <- nassqs(list(
-      source_desc = "SURVEY",
-      sector_desc = "CROPS",
-      group_desc = "FIELD CROPS",
-      commodity_desc = "CORN",
-      statisticcat_desc = "PROGRESS, 5 YEAR AVG",
-      unit_desc = "PCT PLANTED",
-      state_name = "VIRGINIA",
-      year = year
-    ))
-    avg_data %>%
-      mutate(
-        week = as.Date(week_ending),
-        value = as.numeric(Value),
-        year = as.character(year)
-      ) %>%
-      filter(!is.na(week)) %>%
-      arrange(week)
-  }, error = function(e) NULL)
-}
-
 
 
 #Yield Analysis
@@ -257,26 +225,19 @@ ui <- fluidPage(
              p("This comparison helps identify whether planting activity is ahead of or behind typical seasonal trends, offering insight into how conditions such as weather or labor might affect planting progress."),
              p("Please note that the current year's planting progress and the 5-year average may not begin on the exact same calendar week. This is due to differences in USDA reporting schedules or when planting activity begins in a given year."),
              p("All data updates automatically as new weekly reports are released by NASS."),
+             br(),
              do.call(tabsetPanel, c(
                list(id = "year_tabs", type = "tabs"),
                lapply(as.character(2021:(as.numeric(format(Sys.Date(), "%Y")))), function(yr) {
                  tabPanel(yr,
-                          lapply("PCT PLANTED", function(cat) {
-                            tagList(
-                              div(
-                                style = "margin-top: 30px; margin-bottom: 5px;",
-                                HTML(paste0("<h4>Planted Progress</h4>")),
-                                p(paste0("This chart compares weekly reported corn planting progress to the 5-Year Average during the ", yr, " season. ",
-                                         "It helps identify whether farmers are ahead of or behind schedule compared to historical trends."))
-                              ),
-                              plotlyOutput(outputId = paste0("plot_combined_", yr, "_", gsub("[^A-Za-z]", "_", cat)), height = "350px")
-                            )
-                          })
+                          fluidRow(
+                            column(6, plotlyOutput(outputId = paste0("plot_actual_", yr))),
+                            column(6, plotlyOutput(outputId = paste0("plot_compare_", yr)))
+                          )
                  )
                })
              ))
     ),
-             
     
     
     tabPanel("Crop Conditions",
@@ -578,10 +539,11 @@ server <- function(input, output) {
             bringToFront = TRUE
           )
         ) %>%
-        addLegend("bottomright", pal = pal, values = values, title = "Number of Acres", opacity = 1) %>%
+        addLegend("bottomright", pal = pal, values = values, title = "Acres Planted", opacity = 1) %>%
         setView(lng = -78.6569, lat = 37.5, zoom = 6)
     }
   })
+  
   
   #Planting Progress 
   get_avg_data <- function(year) {
@@ -607,39 +569,48 @@ server <- function(input, output) {
   for (yr in 2021:(as.numeric(format(Sys.Date(), "%Y")))) {
     local({
       year_inner <- yr
-      category_inner <- "PCT PLANTED"
-      safe_id <- paste0("plot_combined_", year_inner, "_", gsub("[^A-Za-z]", "_", category_inner))
       
-      output[[safe_id]] <- renderPlotly({
+      # Actual planting progress only
+      output[[paste0("plot_actual_", year_inner)]] <- renderPlotly({
+        data <- get_year_data(year_inner)
+        req(data)
+        p <- ggplot(data, aes(x = week, y = value)) +
+          geom_line(color = "#2e7d32", size = 1.4) +
+          geom_point(color = "#66bb6a", size = 2.5) +
+          labs(
+            title = paste( "Actual Planting Progress —", year_inner),
+            x = "Week Ending",
+            y = "% Planted"
+          ) +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                plot.title = element_text(size = 16, face = "bold"))
+        ggplotly(p, tooltip = c("x", "y"))
+      })
+      
+      # Comparison with 5-year average
+      output[[paste0("plot_compare_", year_inner)]] <- renderPlotly({
         current <- get_year_data(year_inner)
         avg <- get_avg_data(year_inner)
-        
-        if ((is.null(current) || nrow(current) == 0) && (is.null(avg) || nrow(avg) == 0)) {
-          return(plotly_empty(type = "scatter", mode = "lines") %>%
-                   layout(title = list(text = paste("No data for Planting Progress —", year_inner))))
-        }
-        
+        req(current, avg)
         combined <- bind_rows(
-          if (!is.null(current)) mutate(current, type = "Actual") else NULL,
-          if (!is.null(avg)) mutate(avg, type = "5-Year Avg") else NULL
+          current %>% mutate(type = "Current"),
+          avg
         )
-        
-        ggplotly(
-          ggplot(combined, aes(x = week, y = value, color = type)) +
-            geom_line(size = 1.4) +
-            geom_point(size = 2.5) +
-            scale_color_manual(values = c("Actual" = "#2e7d32", "5-Year Avg" = "#a5d6a7")) +
-            labs(
-              title = paste("Planting Progress —", year_inner),
-              x = "Week Ending", y = "% Planted", color = "Type"
-            ) +
-            theme_minimal() +
-            theme(
-              axis.text.x = element_text(angle = 45, hjust = 1),
-              plot.title = element_text(size = 16, face = "bold")
-            ),
-          tooltip = c("x", "y", "color")
-        )
+        p <- ggplot(combined, aes(x = week, y = value, color = type)) +
+          geom_line(size = 1.4) +
+          geom_point(size = 2.5) +
+          labs(
+            title = paste(year_inner, "vs 5-Year Avg"),
+            x = "Week Ending",
+            y = "% Planted",
+            color = "Type"
+          ) +
+          scale_color_manual(values = c("Current" = "#1b5e20", "5-Year Avg" = "#a5d6a7")) +
+          theme_minimal() +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                plot.title = element_text(size = 16, face = "bold"))
+        ggplotly(p, tooltip = c("x", "y", "color"))
       })
     })
   }
