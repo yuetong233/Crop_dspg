@@ -6,7 +6,8 @@ library(plotly)
 library(dplyr)
 library(ggplot2)
 library(rnassqs)
-nassqs_auth(key = "E0DE4B3D-0418-32C4-8541-6C4C8954534A")
+#API Key
+nassqs_auth(key = "E4A8F7DF-7324-371D-A735-4F0FBC2629EE") 
 
 #UI
 ui <- fluidPage(
@@ -82,8 +83,8 @@ library(dplyr)
 library(ggplot2)
 library(rnassqs)
 
-# Authenticate NASS API
-nassqs_auth("E0DE4B3D-0418-32C4-8541-6C4C8954534A")
+#API Key
+nassqs_auth(key = "E4A8F7DF-7324-371D-A735-4F0FBC2629EE") 
 
 # Years and categories
 years <- 2021:(as.numeric(format(Sys.Date(), "%Y")))
@@ -227,15 +228,14 @@ shinyApp(ui, server)
 
 
 #making it pretty
-
 library(shiny)
 library(plotly)
 library(dplyr)
 library(ggplot2)
 library(rnassqs)
 
-# Authenticate API
-nassqs_auth("E0DE4B3D-0418-32C4-8541-6C4C8954534A")
+#API Key
+nassqs_auth(key = "E4A8F7DF-7324-371D-A735-4F0FBC2629EE") 
 
 # Define years and categories
 years <- 2021:(as.numeric(format(Sys.Date(), "%Y")))

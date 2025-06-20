@@ -135,48 +135,38 @@ clean_title <- function(cat) {
   gsub("^PCT ", "", cat)
 }
 
-# Function to get actual weekly planting progress
-get_year_data <- function(year) {
+# Actual data
+get_data <- function(year, category) {
   tryCatch({
-    data <- nassqs(list(
-      source_desc = "SURVEY",
-      sector_desc = "CROPS",
-      group_desc = "FIELD CROPS",
+    nassqs(list(
       commodity_desc = "CORN",
-      statisticcat_desc = "PROGRESS",
-      unit_desc = "PCT PLANTED",
+      year = year,
       state_name = "VIRGINIA",
-      year = year
-    ))
-    data %>%
+      statisticcat_desc = "PROGRESS",
+      unit_desc = category
+    )) %>%
       mutate(
         week = as.Date(week_ending),
-        value = as.numeric(Value),
-        year = as.character(year)
+        value = as.numeric(Value)
       ) %>%
       filter(!is.na(week)) %>%
       arrange(week)
   }, error = function(e) NULL)
 }
 
-# Function to get 5-year average planting progress
-get_avg_data <- function(year) {
+# 5-Year Average
+get_avg_data <- function(year, category) {
   tryCatch({
-    avg_data <- nassqs(list(
-      source_desc = "SURVEY",
-      sector_desc = "CROPS",
-      group_desc = "FIELD CROPS",
+    nassqs(list(
       commodity_desc = "CORN",
-      statisticcat_desc = "PROGRESS, 5 YEAR AVG",
-      unit_desc = "PCT PLANTED",
+      year = year,
       state_name = "VIRGINIA",
-      year = year
-    ))
-    avg_data %>%
+      statisticcat_desc = "PROGRESS, 5 YEAR AVG",
+      unit_desc = category
+    )) %>%
       mutate(
         week = as.Date(week_ending),
-        value = as.numeric(Value),
-        year = as.character(year)
+        value = as.numeric(Value)
       ) %>%
       filter(!is.na(week)) %>%
       arrange(week)
@@ -253,21 +243,20 @@ ui <- fluidPage(
     tabPanel("Planting Progress",
              h4("About This Data"),
              p("This section presents weekly corn planting progress in Virginia from 2021 through the current year, sourced directly from the USDA National Agricultural Statistics Service (NASS) API."),
-             p("Each year includes two visualizations shown side by side: one displays the actual weekly percentage of corn planted, and the other compares that year's progress with the historical 5-year average for the same state."),
-             p("This comparison helps identify whether planting activity is ahead of or behind typical seasonal trends, offering insight into how conditions such as weather or labor might affect planting progress."),
-             p("Please note that the current year's planting progress and the 5-year average may not begin on the exact same calendar week. This is due to differences in USDA reporting schedules or when planting activity begins in a given year."),
-             p("All data updates automatically as new weekly reports are released by NASS."),
+             p("Explore weekly progress for various crop stages. Each plot compares actual progress to the 5-year historical average."),
+             
              do.call(tabsetPanel, c(
                list(id = "year_tabs", type = "tabs"),
-               lapply(as.character(2021:(as.numeric(format(Sys.Date(), "%Y")))), function(yr) {
+               lapply(as.character(years), function(yr) {
                  tabPanel(yr,
-                          lapply("PCT PLANTED", function(cat) {
+                          lapply(categories, function(cat) {
                             tagList(
                               div(
                                 style = "margin-top: 30px; margin-bottom: 5px;",
-                                HTML(paste0("<h4>Planted Progress</h4>")),
-                                p(paste0("This chart compares weekly reported corn planting progress to the 5-Year Average during the ", yr, " season. ",
-                                         "It helps identify whether farmers are ahead of or behind schedule compared to historical trends."))
+                                HTML(paste0("<h4>", clean_title(cat), " Progress</h4>")),
+                                p(paste0("This chart compares weekly reported values to the 5-Year Average for corn ", 
+                                         tolower(clean_title(cat)), 
+                                         " during the ", yr, " season. Significant differences may reflect planting delays, environmental stress, or other agricultural factors."))
                               ),
                               plotlyOutput(outputId = paste0("plot_combined_", yr, "_", gsub("[^A-Za-z]", "_", cat)), height = "350px")
                             )
@@ -584,66 +573,50 @@ server <- function(input, output) {
   })
   
   #Planting Progress 
-  get_avg_data <- function(year) {
-    tryCatch({
-      nassqs(list(
-        source_desc = "SURVEY",
-        sector_desc = "CROPS",
-        group_desc = "FIELD CROPS",
-        commodity_desc = "CORN",
-        statisticcat_desc = "PROGRESS, 5 YEAR AVG",
-        unit_desc = "PCT PLANTED",
-        state_name = "VIRGINIA",
-        year = year
-      )) %>%
-        mutate(week = as.Date(week_ending),
-               value = as.numeric(Value),
-               type = "5-Year Avg") %>%
-        filter(!is.na(week)) %>%
-        arrange(week)
-    }, error = function(e) NULL)
-  }
-  
-  for (yr in 2021:(as.numeric(format(Sys.Date(), "%Y")))) {
-    local({
-      year_inner <- yr
-      category_inner <- "PCT PLANTED"
-      safe_id <- paste0("plot_combined_", year_inner, "_", gsub("[^A-Za-z]", "_", category_inner))
+  for (yr in years) {
+    for (cat in categories) {
+      safe_id <- paste0("plot_combined_", yr, "_", gsub("[^A-Za-z]", "_", cat))
       
-      output[[safe_id]] <- renderPlotly({
-        current <- get_year_data(year_inner)
-        avg <- get_avg_data(year_inner)
+      local({
+        year_inner <- yr
+        category_inner <- cat
+        output_id <- safe_id
         
-        if ((is.null(current) || nrow(current) == 0) && (is.null(avg) || nrow(avg) == 0)) {
-          return(plotly_empty(type = "scatter", mode = "lines") %>%
-                   layout(title = list(text = paste("No data for Planting Progress —", year_inner))))
-        }
-        
-        combined <- bind_rows(
-          if (!is.null(current)) mutate(current, type = "Actual") else NULL,
-          if (!is.null(avg)) mutate(avg, type = "5-Year Avg") else NULL
-        )
-        
-        ggplotly(
-          ggplot(combined, aes(x = week, y = value, color = type)) +
-            geom_line(size = 1.4) +
-            geom_point(size = 2.5) +
-            scale_color_manual(values = c("Actual" = "#2e7d32", "5-Year Avg" = "#a5d6a7")) +
-            labs(
-              title = paste("Planting Progress —", year_inner),
-              x = "Week Ending", y = "% Planted", color = "Type"
-            ) +
-            theme_minimal() +
-            theme(
-              axis.text.x = element_text(angle = 45, hjust = 1),
-              plot.title = element_text(size = 16, face = "bold")
-            ),
-          tooltip = c("x", "y", "color")
-        )
+        output[[output_id]] <- renderPlotly({
+          actual <- get_data(year_inner, category_inner)
+          avg <- get_avg_data(year_inner, category_inner)
+          
+          if ((is.null(actual) || nrow(actual) == 0) && (is.null(avg) || nrow(avg) == 0)) {
+            return(plotly_empty(type = "scatter", mode = "lines") %>%
+                     layout(title = list(text = paste("No data for", clean_title(category_inner), "-", year_inner))))
+          }
+          
+          combined <- bind_rows(
+            if (!is.null(actual)) mutate(actual, Type = "Actual") else NULL,
+            if (!is.null(avg)) mutate(avg, Type = "5-Year Avg") else NULL
+          )
+          
+          ggplotly(
+            ggplot(combined, aes(x = week, y = value, color = Type)) +
+              geom_line(size = 1.2) +
+              geom_point(size = 2.5) +
+              scale_color_manual(values = c("Actual" = "#1b5e20", "5-Year Avg" = "#a5d6a7")) +
+              labs(
+                title = paste(clean_title(category_inner), "Progress —", year_inner),
+                x = "Week Ending", y = "%", color = "Legend"
+              ) +
+              theme_minimal() +
+              theme(
+                plot.title = element_text(size = 14, face = "bold"),
+                axis.text.x = element_text(angle = 45, hjust = 1)
+              ),
+            tooltip = c("x", "y", "color")
+          )
+        })
       })
-    })
+    }
   }
-  
+
   # Get crop condition data for forecasting
   get_condition_data <- function() {
     tryCatch({
@@ -870,4 +843,5 @@ server <- function(input, output) {
 
 # Run the shiny app 
 shinyApp(ui = ui, server = server)
+
 
