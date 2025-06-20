@@ -111,7 +111,7 @@ clean_data <- raw_data %>%
     stat_type = ifelse(stat_type == "AREA PLANTED", "Planted", "Harvested"),
     Value = as.numeric(Value)
   ) %>%
-  filter(!is.na(County)) %>%  # Only filter after defining County
+  filter(!is.na(County)) %>%  
   group_by(County, state_alpha, Year, stat_type) %>%
   summarise(Value = sum(Value, na.rm = TRUE), .groups = "drop") %>%
   tidyr::pivot_wider(names_from = stat_type, values_from = Value) %>%
@@ -418,10 +418,7 @@ server <- function(input, output) {
         )
     })
   })
-  
-  
-  
-  
+
   # --- Summary Card ---
   output$summary_card <- renderPlotly({
     req(yield_data())
