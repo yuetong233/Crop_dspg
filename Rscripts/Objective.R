@@ -1,0 +1,77 @@
+#Objective
+library(shiny)
+library(bslib)
+library(htmltools)
+
+ui <- page_fillable(
+  theme = bs_theme(bootswatch = "flatly", base_font = font_google("Lora")),
+  
+  # Background using a locally saved .jpg in the same folder as this script
+  tags$head(
+    tags$style(HTML("
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background-image: url('https://plus.unsplash.com/premium_photo-1661957611606-b0ba1861b4ae?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mzd8fGNvcm58ZW58MHx8MHx8fDA%3D');
+      background-size: cover;
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-position: center center;
+      z-index: -1;
+      opacity: 0.92;
+    }
+  "))
+  ),
+  
+  tagList(
+    # 🌽 Mission Statement Card
+    absolutePanel(
+      draggable = TRUE,
+      top = "60px", left = "40px", width = 360,
+      style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
+               padding: 20px; box-shadow: 0px 4px 12px rgba(0,0,0,0.1); font-family: 'Lora', serif;",
+      h4("🌽 Mission Statement", style = "color: #2e7d32; font-weight: bold;"),
+      p("This dashboard was developed through the 2025 Data Science for the Public Good (DSPG) Program at Virginia Tech, in collaboration with the Virginia Corn Board."),
+      p("Our mission is to empower Virginia corn producers, Extension agents, and stakeholders with data-driven tools to support informed planting, management, and marketing decisions."),
+      p("By integrating weekly data from the USDA National Agricultural Statistics Service (NASS), we aim to reduce uncertainty and enhance transparency in the grain marketing landscape.")
+    ),
+    
+    # 📘 Instructions Card
+    absolutePanel(
+      draggable = TRUE,
+      top = "60px", left = "440px", width = 360,
+      style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
+               padding: 20px; box-shadow: 0px 4px 12px rgba(0,0,0,0.1); font-family: 'Lora', serif;",
+      h4("📘 How to Use This Dashboard", style = "color: #2e7d32; font-weight: bold;"),
+      p("📊 The dashboard consists of seven core modules, accessible via the sidebar navigation. Each module provides interactive visualizations, including plots, maps, and forecasts."),
+      p("🖱️ Hover over plots to view weekly percentages, tooltips, or county-specific insights."),
+      p("📅 The data is updated weekly based on USDA NASS releases. Historical data spans back to 2015 in some tabs for trend analysis."),
+      p("🧭 The tools are designed for flexibility — whether you're a farmer checking this week's progress or an analyst modeling crop trends.")
+    ),
+    
+    # 🧭 Dashboard Tabs Overview Card
+    absolutePanel(
+      draggable = TRUE,
+      top = "60px", left = "840px", width = 360,
+      style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
+               padding: 20px; box-shadow: 0px 4px 12px rgba(0,0,0,0.1); font-family: 'Lora', serif;",
+      h4("🧭 Dashboard Tab Summaries", style = "color: #2e7d32; font-weight: bold;"),
+      tags$ul(
+        tags$li(strong("Planting Progress:"), " Track weekly crop development stages (2021–present) and compare to 5-year historical averages."),
+        tags$li(strong("Crop Conditions:"), " Visualize weekly condition quality ratings (Excellent to Very Poor) using stacked area plots."),
+        tags$li(strong("Remote Sensing:"), " Placeholder for future integration of satellite-derived crop indicators."),
+        tags$li(strong("County Analysis:"), " Explore planted and harvested acres by county across VA, NC, and MD."),
+        tags$li(strong("Yield Analysis:"), " Analyze yearly trends, moving averages, and year-over-year yield changes."),
+        tags$li(strong("Yield Forecast:"), " Generate real-time yield predictions using current crop conditions."),
+        tags$li(strong("Historical Yield Simulation:"), " Replay prior years to see how yield forecasts evolve week by week.")
+      )
+    )
+  )
+)
+
+server <- function(input, output) {}
+
+shinyApp(ui = ui, server = server)
+
