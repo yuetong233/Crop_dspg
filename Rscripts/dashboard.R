@@ -260,57 +260,66 @@ ui <- fluidPage(
     
     tabPanel("Objective",
              div(
-               style = "
-      background-image: url('https://images.unsplash.com/photo-1658902748005-4a1c2ca3e148?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
-      background-size: cover;
-      background-repeat: no-repeat;
-      background-position: center center;
-      min-height: 100vh;
-      padding: 20px;
-      position: relative;
-    ",
-    
-    # 🌽 Mission Statement Card
-    absolutePanel(
-      draggable = TRUE,
-      top = "60px", left = "2%", width = 360,
-      style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
-               padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Lora', serif;",
-      h4("🌽 Mission Statement", style = "color: #2e7d32; font-weight: bold;"),
-      p("This dashboard was developed through the 2025 Data Science for the Public Good (DSPG) Program at Virginia Tech, in collaboration with the Virginia Corn Board."),
-      p("Our mission is to empower Virginia corn producers, Extension agents, and stakeholders with data-driven tools to support informed planting, management, and marketing decisions."),
-      p("By integrating weekly USDA NASS data, we aim to reduce uncertainty and enhance transparency in Virginia's grain marketing landscape.")
-    ),
-    
-    # 📘 Instructions Card
-    absolutePanel(
-      draggable = TRUE,
-      top = "60px", left = "35%", width = 360,
-      style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
-               padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Lora', serif;",
-      h4("📘 How to Use This Dashboard", style = "color: #2e7d32; font-weight: bold;"),
-      p("📊 Use the sidebar to navigate through key data modules."),
-      p("🖱️ Hover over plots to view weekly percentages, trends, or county-level insights."),
-      p("📅 Data is updated weekly via the USDA NASS API and includes historical trends.")
-    ),
-    
-    # 🧭 Dashboard Tab Overview Card
-    absolutePanel(
-      draggable = TRUE,
-      top = "60px", left = "68%", width = 360,
-      style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
-               padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Lora', serif;",
-      h4("🧭 Dashboard Tab Summaries", style = "color: #2e7d32; font-weight: bold;"),
-      tags$ul(
-        tags$li(strong("🌱 Planting Progress:"), " Weekly crop development progress with historical comparison."),
-        tags$li(strong("🌾 Crop Conditions:"), " Quality ratings from Excellent to Very Poor via stacked plots."),
-        tags$li(strong("🛰️ Remote Sensing:"), " Placeholder for satellite imagery and NDVI data (coming soon)."),
-        tags$li(strong("🗺️ County Analysis:"), " Interactive maps showing acres planted/harvested by county."),
-        tags$li(strong("📈 Yield Analysis:"), " Annual yield trends and comparisons across states."),
-        tags$li(strong("🔮 Yield Forecast:"), " Predictive models using condition data to forecast yield."),
-        tags$li(strong("⏳ Historical Simulation:"), " Replay of past years to visualize forecasting evolution.")
+               style = "position: relative; min-height: 100vh; padding: 20px; overflow: hidden;",
+               
+               # 🌽 Background video
+               tags$video(
+                 autoplay = NA, muted = NA, loop = NA, playsinline = NA,
+                 style = "
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+        z-index: -1;
+        opacity: 0.92;
+      ",
+      tags$source(
+        src = "https://cdn.pixabay.com/video/2022/09/23/132321-753435412_large.mp4",
+        type = "video/mp4"
       )
-    )
+               ),
+      
+      # 🌽 Mission Statement Card
+      absolutePanel(
+        draggable = TRUE,
+        top = "60px", left = "2%", width = 360,
+        style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
+               padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Lora', serif;",
+        h4("🌽 Mission Statement", style = "color: #2e7d32; font-weight: bold;"),
+        p("This dashboard was developed through the 2025 Data Science for the Public Good (DSPG) Program at Virginia Tech, in collaboration with the Virginia Corn Board."),
+        p("Our mission is to empower Virginia corn producers, Extension agents, and stakeholders with data-driven tools to support informed planting, management, and marketing decisions."),
+        p("By integrating weekly USDA NASS data, we aim to reduce uncertainty and enhance transparency in Virginia's grain marketing landscape.")
+      ),
+      
+      # 📘 Instructions Card
+      absolutePanel(
+        draggable = TRUE,
+        top = "60px", left = "35%", width = 360,
+        style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
+               padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Lora', serif;",
+        h4("📘 How to Use This Dashboard", style = "color: #2e7d32; font-weight: bold;"),
+        p("📊 Use the sidebar to navigate through key data modules."),
+        p("🖱️ Hover over plots to view weekly percentages, trends, or county-level insights."),
+        p("📅 Data is updated weekly via the USDA NASS API and includes historical trends.")
+      ),
+      
+      # 🧭 Dashboard Tab Overview Card
+      absolutePanel(
+        draggable = TRUE,
+        top = "60px", left = "68%", width = 360,
+        style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
+               padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Lora', serif;",
+        h4("🧭 Dashboard Tab Summaries", style = "color: #2e7d32; font-weight: bold;"),
+        tags$ul(
+          tags$li(strong("🌱 Planting Progress:"), " Weekly crop development progress with historical comparison."),
+          tags$li(strong("🌾 Crop Conditions:"), " Quality ratings from Excellent to Very Poor via stacked plots."),
+          tags$li(strong("🛰️ Remote Sensing:"), " Placeholder for satellite imagery and NDVI data (coming soon)."),
+          tags$li(strong("🗺️ County Analysis:"), " Interactive maps showing acres planted/harvested by county."),
+          tags$li(strong("📈 Yield Analysis:"), " Annual yield trends and comparisons across states."),
+          tags$li(strong("🔮 Yield Forecast:"), " Predictive models using condition data to forecast yield."),
+          tags$li(strong("⏳ Historical Simulation:"), " Replay of past years to visualize forecasting evolution.")
+        )
+      )
              )
     ),
     
