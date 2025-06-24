@@ -19,7 +19,6 @@ options(tigris_use_cache = TRUE)
 nassqs_auth(key = "E4A8F7DF-7324-371D-A735-4F0FBC2629EE") 
 
 #Processing Data and Cleaning it
-
 #Crop Conditions
 get_corn_data <- function(year) {
   data <- nassqs(list(
@@ -126,14 +125,40 @@ clean_data <- raw_data %>%
 
 
 #Planting Progress
-years <- 2021:(as.numeric(format(Sys.Date(), "%Y")))
-categories <- c(
-  "PCT PLANTED", "PCT EMERGED", "PCT SILKING", "PCT DOUGH",
-  "PCT MATURE", "PCT HARVESTED", "PCT DENTED"
-)
 clean_title <- function(cat) {
-  gsub("^PCT ", "", cat)
+  title <- gsub("^PCT ", "", cat)  # Remove "PCT "
+  paste0(toupper(substr(title, 1, 1)), tolower(substr(title, 2, nchar(title))))  # Capitalize first letter
 }
+categories <- c(
+  "PCT PLANTED", "PCT EMERGED", "PCT SILKING",
+  "PCT DOUGH", "PCT DENTED", "PCT MATURE", "PCT HARVESTED"
+)
+get_category_description <- function(cat, year) {
+  cat_key <- toupper(trimws(cat))  # Normalize for matching
+  cat_clean <- clean_title(cat_key)  # Clean title for fallback
+  
+  descriptions <- list(
+    "PCT PLANTED" = paste0("This chart shows the weekly progress of corn ", cat_clean, " in Virginia during ", year,
+                           ". It helps identify early or delayed planting relative to the 5-Year Average."),
+    "PCT EMERGED" = paste0("This chart illustrates how corn has ", cat_clean, " throughout the ", year,
+                           " season. Early emergence suggests favorable weather and soil conditions."),
+    "PCT SILKING" = paste0(cat_clean, " marks the beginning of pollination. This chart tracks its weekly progress during ", year, "."),
+    "PCT DOUGH" = paste0("This chart shows how much corn reached the ", cat_clean, " stage in ", year,
+                         ", a key indicator of grain development."),
+    "PCT DENTED" = paste0("The ", cat_clean, " stage reflects kernel hardening. Track its progress through the ", year, " season."),
+    "PCT MATURE" = paste0("This chart displays weekly percentages of corn reaching ", cat_clean, " in ", year,
+                          ", which affects harvest scheduling."),
+    "PCT HARVESTED" = paste0("This chart tracks how much of the corn crop was ", cat_clean, " each week in ", year,
+                             ", compared to the historical average.")
+  )
+  
+  if (!is.null(descriptions[[cat_key]])) {
+    descriptions[[cat_key]]
+  } else {
+    paste0("This chart compares weekly values to the 5-Year Average for corn ", cat_clean, " in ", year, ".")
+  }
+}
+
 
 # Actual data
 get_data <- function(year, category) {
@@ -303,9 +328,9 @@ ui <- fluidPage(
                               div(
                                 style = "margin-top: 30px; margin-bottom: 5px;",
                                 HTML(paste0("<h4>", clean_title(cat), " Progress</h4>")),
-                                p(paste0("This chart compares weekly reported values to the 5-Year Average for corn ", 
-                                         tolower(clean_title(cat)), 
-                                         " during the ", yr, " season. Significant differences may reflect planting delays, environmental stress, or other agricultural factors."))
+                                
+                                p(get_category_description(cat, yr))
+                                
                               ),
                               plotlyOutput(outputId = paste0("plot_combined_", yr, "_", gsub("[^A-Za-z]", "_", cat)), height = "350px")
                             )
