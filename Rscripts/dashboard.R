@@ -300,53 +300,53 @@ ui <- fluidPage(
         z-index: -1;
         opacity: 0.92;
       ",
-      tags$source(
-        src = "https://cdn.pixabay.com/video/2022/09/23/132321-753435412_large.mp4",
-        type = "video/mp4"
-      )
+                 tags$source(
+                   src = "https://cdn.pixabay.com/video/2022/09/23/132321-753435412_large.mp4",
+                   type = "video/mp4"
+                 )
                ),
-      
-      # 🌽 Mission Statement Card
-      absolutePanel(
-        draggable = TRUE,
-        top = "60px", left = "2%", width = 360,
-        style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
+               
+               # 🌽 Mission Statement Card
+               absolutePanel(
+                 draggable = TRUE,
+                 top = "60px", left = "2%", width = 360,
+                 style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
                padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Lora', serif;",
-        h4("🌽 Mission Statement", style = "color: #2e7d32; font-weight: bold;"),
-        p("This dashboard was developed through the 2025 Data Science for the Public Good (DSPG) Program at Virginia Tech, in collaboration with the Virginia Corn Board."),
-        p("Our mission is to empower Virginia corn producers, Extension agents, and stakeholders with data-driven tools to support informed planting, management, and marketing decisions."),
-        p("By integrating weekly USDA NASS data, we aim to reduce uncertainty and enhance transparency in Virginia's grain marketing landscape.")
-      ),
-      
-      # 📘 Instructions Card
-      absolutePanel(
-        draggable = TRUE,
-        top = "60px", left = "35%", width = 360,
-        style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
+                 h4("🌽 Mission Statement", style = "color: #2e7d32; font-weight: bold;"),
+                 p("This dashboard was developed through the 2025 Data Science for the Public Good (DSPG) Program at Virginia Tech, in collaboration with the Virginia Corn Board."),
+                 p("Our mission is to empower Virginia corn producers, Extension agents, and stakeholders with data-driven tools to support informed planting, management, and marketing decisions."),
+                 p("By integrating weekly USDA NASS data, we aim to reduce uncertainty and enhance transparency in Virginia's grain marketing landscape.")
+               ),
+               
+               # 📘 Instructions Card
+               absolutePanel(
+                 draggable = TRUE,
+                 top = "60px", left = "35%", width = 360,
+                 style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
                padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Lora', serif;",
-        h4("📘 How to Use This Dashboard", style = "color: #2e7d32; font-weight: bold;"),
-        p("📊 Use the sidebar to navigate through key data modules."),
-        p("🖱️ Hover over plots to view weekly percentages, trends, or county-level insights."),
-        p("📅 Data is updated weekly via the USDA NASS API and includes historical trends.")
-      ),
-      
-      # 🧭 Dashboard Tab Overview Card
-      absolutePanel(
-        draggable = TRUE,
-        top = "60px", left = "68%", width = 360,
-        style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
+                 h4("📘 How to Use This Dashboard", style = "color: #2e7d32; font-weight: bold;"),
+                 p("📊 Use the sidebar to navigate through key data modules."),
+                 p("🖱️ Hover over plots to view weekly percentages, trends, or county-level insights."),
+                 p("📅 Data is updated weekly via the USDA NASS API and includes historical trends.")
+               ),
+               
+               # 🧭 Dashboard Tab Overview Card
+               absolutePanel(
+                 draggable = TRUE,
+                 top = "60px", left = "68%", width = 360,
+                 style = "background-color: #e0f8eb; border: 2px solid #2e7d32; border-radius: 10px;
                padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Lora', serif;",
-        h4("🧭 Dashboard Tab Summaries", style = "color: #2e7d32; font-weight: bold;"),
-        tags$ul(
-          tags$li(strong("🌱 Planting Progress:"), " Weekly crop development progress with historical comparison."),
-          tags$li(strong("🌾 Crop Conditions:"), " Quality ratings from Excellent to Very Poor via stacked plots."),
-          tags$li(strong("🛰️ Remote Sensing:"), " Placeholder for satellite imagery and NDVI data (coming soon)."),
-          tags$li(strong("🗺️ County Analysis:"), " Interactive maps showing acres planted/harvested by county."),
-          tags$li(strong("📈 Yield Analysis:"), " Annual yield trends and comparisons across states."),
-          tags$li(strong("🔮 Yield Forecast:"), " Predictive models using condition data to forecast yield."),
-          tags$li(strong("⏳ Historical Simulation:"), " Replay of past years to visualize forecasting evolution.")
-        )
-      )
+                 h4("🧭 Dashboard Tab Summaries", style = "color: #2e7d32; font-weight: bold;"),
+                 tags$ul(
+                   tags$li(strong("🌱 Planting Progress:"), " Weekly crop development progress with historical comparison."),
+                   tags$li(strong("🌾 Crop Conditions:"), " Quality ratings from Excellent to Very Poor via stacked plots."),
+                   tags$li(strong("🛰️ Remote Sensing:"), " Placeholder for satellite imagery and NDVI data (coming soon)."),
+                   tags$li(strong("🗺️ County Analysis:"), " Interactive maps showing acres planted/harvested by county."),
+                   tags$li(strong("📈 Yield Analysis:"), " Annual yield trends and comparisons across states."),
+                   tags$li(strong("🔮 Yield Forecast:"), " Predictive models using condition data to forecast yield."),
+                   tags$li(strong("⏳ Historical Simulation:"), " Replay of past years to visualize forecasting evolution.")
+                 )
+               )
              )
     ),
     
@@ -375,7 +375,7 @@ ui <- fluidPage(
                })
              ))
     ),
-             
+    
     
     
     tabPanel("Crop Conditions",
@@ -408,8 +408,8 @@ ui <- fluidPage(
     
     tabPanel("Yield Analysis",
              h4("About This Data"),
-             p("This dashboard presents an analysis of corn crop yield across Virginia, North Carolina, and Maryland from 2015 to 2023. 
-   The data is sourced from the USDA's National Agricultural Statistics Service (NASS) API and includes county-level statistics on corn yield (bushels per acre). 
+             p("This dashboard presents an analysis of corn crop yield across Virginia, North Carolina, and Maryland from 2015 to 2023. \
+   The data is sourced from the USDA's National Agricultural Statistics Service (NASS) API and includes county-level statistics on corn yield (bushels per acre). \
    Interactive graphics allow users to explore average yields over time, moving averages, and year-over-year changes."),
              
              fluidRow(
@@ -428,15 +428,11 @@ ui <- fluidPage(
                )
              ),
              
-             h4("Summary Statistics"),
-             div(style = "margin-bottom:-30px;", plotlyOutput("summary_card")),
-             
              h4("Yield Trends Over Time"),
              plotlyOutput("yield_plot"),
              
-             br(),
-             h4("Year-over-Year Yield Change"),
-             plotlyOutput("yoy_plot")
+             h4("Summary Statistics"),
+             div(style = "margin-bottom:-30px;", plotlyOutput("summary_card"))
     ),
     
     tabPanel("Yield Forecast",
@@ -452,20 +448,6 @@ ui <- fluidPage(
                       plotlyOutput("yield_forecast", height = "400px")
                )
              )
-    ),
-    
-    tabPanel("Historical Yield Simulation",
-             h4("About This Feature"),
-             p("This section simulates how weekly corn yield forecasts would have evolved over a historical season based on the actual crop condition data available at each week. This helps visualize how the forecast improves or fluctuates as more weekly data becomes available."),
-             br(),
-             fluidRow(
-               column(4,
-                      selectInput("sim_year", "Select Historical Year:",
-                                  choices = sort(as.numeric(names(corn_data_list)), decreasing = TRUE),
-                                  selected = max(as.numeric(names(corn_data_list))))
-               )
-             ),
-             plotlyOutput("historical_yield_simulation")
     )
   )
 )
@@ -528,7 +510,7 @@ server <- function(input, output) {
         )
     })
   })
-
+  
   # --- Summary Card ---
   output$summary_card <- renderPlotly({
     req(yield_data())
@@ -577,43 +559,6 @@ server <- function(input, output) {
         paper_bgcolor = '#ffffff'
       )
   })
-  
-  # --- Year-over-Year Change Plot ---
-  output$yoy_plot <- renderPlotly({
-    req(yield_data(), input$yoy_year_slider)
-    
-    yoy <- yield_data() %>%
-      group_by(State, county_name) %>%
-      arrange(State, county_name, year) %>%
-      mutate(yoy_change_pct = (Value - lag(Value)) / lag(Value) * 100) %>%
-      filter(!is.na(yoy_change_pct)) %>%
-      group_by(State, year) %>%
-      summarise(yoy_change_pct = mean(yoy_change_pct, na.rm = TRUE), .groups = "drop") %>%
-      filter(year == input$yoy_year_slider) %>%
-      mutate(is_max = yoy_change_pct == max(yoy_change_pct),
-             label = paste0(round(yoy_change_pct, 1), "%"))
-    
-    plot_ly(
-      data = yoy,
-      x = ~yoy_change_pct,
-      y = ~State,
-      type = 'bar',
-      orientation = 'h',
-      text = ~label,
-      textposition = 'outside',
-      marker = list(
-        color = ~ifelse(is_max, '#81c784', '#aed581'),
-        line = list(width = ~ifelse(is_max, 4, 1), color = 'black')
-      )
-    ) %>% layout(
-      title = "Year-over-Year Corn Yield Change by State",
-      xaxis = list(title = "YoY % Change"),
-      yaxis = list(title = "State"),
-      plot_bgcolor = '#ffffff',
-      paper_bgcolor = '#ffffff'
-    )
-  })
-  
   
   selected_year <- reactiveVal("2024")
   
@@ -723,7 +668,7 @@ server <- function(input, output) {
       })
     }
   }
-
+  
   # Get crop condition data for forecasting
   get_condition_data <- function() {
     tryCatch({
@@ -843,103 +788,6 @@ server <- function(input, output) {
       ) %>%
       layout(
         title = "Yield Forecast vs Trend",
-        xaxis = list(title = "Week Ending"),
-        yaxis = list(title = "Yield (bushels/acre)"),
-        showlegend = TRUE,
-        legend = list(orientation = "h", y = -0.2)
-      )
-  })
-  
-  # Historical Yield Simulation
-  output$historical_yield_simulation <- renderPlotly({
-    selected_sim_year <- input$sim_year
-    req(selected_sim_year)
-    
-    sim_condition_data <- corn_data_list[[selected_sim_year]]
-    req(sim_condition_data)
-    
-    # Get historical trend yield (using average of last 5 years)
-    historical_yield_sim <- yield_data() %>%
-      filter(State == "VA") %>%
-      group_by(year) %>% 
-      summarise(avg_yield = mean(Value, na.rm = TRUE)) %>%
-      tail(5) %>%
-      summarise(trend_yield = mean(avg_yield, na.rm = TRUE)) %>%
-      pull(trend_yield)
-    
-    # Get unique weeks in chronological order for the selected year
-    unique_weeks <- sim_condition_data %>% 
-      distinct(week) %>% 
-      arrange(week) %>% 
-      pull(week)
-    
-    forecast_evolution_list <- list()
-    
-    for (current_week_val in unique_weeks) {
-      # Filter data up to the current week
-      current_week_date <- as.Date(current_week_val) # Explicitly ensure it's Date
-      data_up_to_week <- sim_condition_data %>% 
-        filter(week <= current_week_date)
-      
-      # If there are no condition data up to this week (e.g., very early in the season before first report)
-      # then skip this week's forecast
-      if (nrow(data_up_to_week) == 0) {
-        next
-      }
-      
-      deviations <- calculate_yield_deviation(data_up_to_week)
-      
-      if (!is.null(deviations) && nrow(deviations) > 0) {
-        # Use the deviation from the very last week in the `deviations` dataframe
-        # which represents the forecast based on data up to `current_week`
-        latest_deviation <- deviations %>% 
-          filter(week == max(week)) %>% 
-          pull(deviation_pct)
-        
-        # Ensure latest_deviation is not empty, which can cause type errors if it's numeric(0)
-        if (length(latest_deviation) == 0 || !is.finite(latest_deviation)) {
-          next 
-        }
-        
-        current_forecasted_yield <- (1 + latest_deviation/100) * historical_yield_sim
-        
-        if (length(current_forecasted_yield) == 0 || !is.finite(current_forecasted_yield)) {
-          next 
-        }
-        
-        forecast_evolution_list <- append(forecast_evolution_list, list(tibble(
-          week = current_week_date,
-          forecasted_yield = as.numeric(current_forecasted_yield)
-        )))
-      }
-    }
-    
-    forecast_evolution <- bind_rows(forecast_evolution_list)
-    
-    req(forecast_evolution)
-    
-    plot_ly() %>%
-      add_trace(
-        data = forecast_evolution,
-        x = ~week,
-        y = ~forecasted_yield,
-        type = "scatter",
-        mode = "lines+markers",
-        name = "Simulated Forecast",
-        line = list(color = "#1b5e20", width = 2),
-        marker = list(color = "#43a047", size = 8)
-      ) %>% 
-      add_segments(
-        x = min(forecast_evolution$week),
-        xend = max(forecast_evolution$week),
-        y = historical_yield_sim,
-        yend = historical_yield_sim,
-        line = list(color = '#666666', width = 2, dash = 'dash'),
-        name = "Trend Yield",
-        inherit = FALSE
-      ) %>%
-      layout(
-        title = paste("Historical Yield Forecast Simulation for", selected_sim_year),
         xaxis = list(title = "Week Ending"),
         yaxis = list(title = "Yield (bushels/acre)"),
         showlegend = TRUE,
