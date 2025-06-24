@@ -251,6 +251,33 @@ ui <- fluidPage(
     "))
   ),
   
+  tags$head(
+    tags$style(HTML("
+    /* Make navlistPanel sidebar buttons prettier */
+    .nav-pills > li > a {
+      background-color: #e0f8eb;   /* light green background */
+      color: #2e7d32;              /* VT green text */
+      font-family: 'Times New Roman', serif;
+      font-weight: bold;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      padding: 12px;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .nav-pills > li.active > a {
+      background-color: #2e7d32 !important; /* active tab */
+      color: white !important;
+    }
+
+    .nav-pills > li > a:hover {
+      background-color: #c8e6c9;
+      color: #1b5e20;
+    }
+  "))
+  ),
+  
+  
   div(class = "title-box",
       h1("Planting Progress and Crop Condition Interactive Dashboard")
   ),
