@@ -195,7 +195,7 @@ server <- function(input, output) {
           
           ggplotly(
             ggplot(combined, aes(x = week, y = value, color = Type)) +
-              geom_line(size = 1.2) +
+              geom_line(linewidth = 1.2) +
               geom_point(size = 2.5) +
               scale_color_manual(values = c("Actual" = "#1b5e20", "5-Year Avg" = "#a5d6a7")) +
               labs(
@@ -339,4 +339,24 @@ server <- function(input, output) {
         legend = list(orientation = "h", y = -0.2)
       )
   })
+  
+  #Remote sensing data 
+  ndvi_data <- read_csv("NDVI_weekly.csv") %>%
+    mutate(date = as.Date(date)) %>%
+    filter(!is.na(NDVI))
+  
+  output$ndvi_timeseries <- renderPlotly({
+    ndvi_data %>%
+      filter(year >= input$ndvi_year_range[1], year <= input$ndvi_year_range[2]) %>%
+      plot_ly(x = ~date, y = ~NDVI, type = "scatter", mode = "lines+markers",
+              line = list(color = "lightgreen", width = 2),
+              marker = list(color = "darkgreen", size = 5)) %>%
+      layout(
+        title = "Weekly NDVI over Corn Fields (Virginia)",
+        xaxis = list(title = "Date"),
+        yaxis = list(title = "NDVI", range = c(0, 1)),
+        hovermode = "x unified"
+      )
+  })
+  
 }
