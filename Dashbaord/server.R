@@ -2,23 +2,13 @@
 source("functions.R")
 server <- function(input, output) {
   
+  yield_data_all <- read_csv("yield_data_cache.csv", show_col_types = FALSE)
+  
   yield_data <- reactive({
     req(input$yield_states)
-    
-    all_data <- lapply(input$yield_states, function(state) {
-      nassqs(list(
-        commodity_desc = "CORN",
-        year = 2015:2023,
-        agg_level_desc = "COUNTY",
-        state_alpha = state,
-        statisticcat_desc = "YIELD"
-      ))
-    })
-    
-    do.call(rbind, Map(function(data, state) {
-      data %>% mutate(State = state)
-    }, all_data, input$yield_states))
+    yield_data_all %>% filter(State %in% input$yield_states)
   })
+  
   
   # --- Crop Condition Plots ---
   lapply(names(corn_data_list), function(yr) {
