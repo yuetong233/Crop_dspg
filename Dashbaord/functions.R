@@ -14,7 +14,7 @@ library(tigris)
 options(tigris_use_cache = TRUE)
 
 #API Key
-nassqs_auth(key = "17496A3F-0DB8-35C2-9793-699F5AD49DDC") 
+nassqs_auth(key = "E4A8F7DF-7324-371D-A735-4F0FBC2629EE")
 
 #Processing Data and Cleaning it
 #Crop Conditions
@@ -92,13 +92,22 @@ get_county_acres <- function(state, year, stat_cat) {
   }, error = function(e) NULL)
 }
 
-raw_data <- bind_rows(lapply(states, function(st) {
-  bind_rows(lapply(years, function(yr) {
-    bind_rows(lapply(stats, function(sc) {
-      get_county_acres(st, yr, sc)
+# Safely load or generate county-level raw data
+if (file.exists("county_data_cache.csv")) {
+  raw_data <- read_csv("county_data_cache.csv", show_col_types = FALSE)
+} else {
+  raw_data <- bind_rows(lapply(states, function(st) {
+    bind_rows(lapply(years, function(yr) {
+      bind_rows(lapply(stats, function(sc) {
+        get_county_acres(st, yr, sc)
+      }))
     }))
   }))
-}))
+  
+  # Save the downloaded data for future runs
+  write_csv(raw_data, "county_data_cache.csv")
+}
+
 
 clean_data <- raw_data %>%
   mutate(
@@ -196,25 +205,5 @@ get_avg_data <- function(year, category) {
   }, error = function(e) NULL)
 }
 
-
-
-#Yield Analysis
-yield_data <- reactive({
-  req(input$yield_states)
-  
-  all_data <- lapply(input$yield_states, function(state) {
-    nassqs(list(
-      commodity_desc = "CORN",
-      year = 2015:2023,
-      agg_level_desc = "COUNTY",
-      state_alpha = state,
-      statisticcat_desc = "YIELD"
-    ))
-  })
-  
-  do.call(rbind, Map(function(data, state) {
-    data %>% mutate(State = state)
-  }, all_data, input$yield_states))
-})
 
 

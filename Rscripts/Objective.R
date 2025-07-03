@@ -14,7 +14,7 @@ ui <- page_fillable(
       position: fixed;
       top: 0; left: 0;
       width: 100vw; height: 100vh;
-      background-image: url('https://plus.unsplash.com/premium_photo-1661957611606-b0ba1861b4ae?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mzd8fGNvcm58ZW58MHx8MHx8fDA%3D');
+      background-image: url('https://v.ftcdn.net/03/22/96/53/700_F_322965329_ofLH1F3uDTCuO4zBzRJFEEx5w0UVE9ds_ST.mp4');
       background-size: cover;
       background-size: cover;
       background-repeat: no-repeat;
@@ -107,7 +107,7 @@ ui <- page_fillable(
       opacity: 0.92;
     ",
     tags$source(
-      src = "https://cdn.pixabay.com/video/2022/09/23/132321-753435412_large.mp4",
+      src = "https://media.istockphoto.com/id/512010789/video/flying-over-a-golden-cornfield-at-sunrise-sunset-video-clip.mp4?s=mp4-640x640-is&k=20&c=bUpk5TvDTxjeyy9lSPpma7NwpMC_JWn7-S9MW_xdzKo=",
       type = "video/mp4"
     )
   ),
