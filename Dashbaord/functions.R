@@ -104,7 +104,6 @@ if (file.exists("county_data_cache.csv")) {
     }))
   }))
   
-  # Save the downloaded data for future runs
   write_csv(raw_data, "county_data_cache.csv")
 }
 
@@ -204,6 +203,24 @@ get_avg_data <- function(year, category) {
       arrange(week)
   }, error = function(e) NULL)
 }
+
+#Remote Sensing Data
+load_ndvi <- function(file, year) {
+  read_csv(file) %>%
+    select(GEOID, county, date, mean) %>%
+    filter(!is.na(mean), county != "") %>%
+    mutate(date = as.Date(date), year = year)
+}
+
+ndvi_2021 <- load_ndvi("NDVI_VA_County_Weekly_2021.csv", 2021)
+ndvi_2022 <- load_ndvi("NDVI_VA_County_Weekly_2022.csv", 2022)
+ndvi_2023 <- load_ndvi("NDVI_VA_County_Weekly_2023.csv", 2023)
+ndvi_2024 <- load_ndvi("NDVI_VA_County_Weekly_2024.csv", 2024)
+
+ndvi_all <- bind_rows(ndvi_2021, ndvi_2022, ndvi_2023, ndvi_2024)
+county_list <- sort(unique(ndvi_all$county))
+
+
 
 
 

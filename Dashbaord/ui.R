@@ -198,18 +198,26 @@ ui <- fluidPage(
              
              br(),
              
-             fluidRow(
-               column(4,
-                      sliderInput("ndvi_year_range", "Select Year Range:",
-                                  min = 2021, max = 2025,
-                                  value = c(2021, 2025),
-                                  sep = "", step = 1
-                      )
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("counties", "Select Counties to Compare:",
+                             choices = county_list,
+                             selected = county_list[1],
+                             multiple = TRUE),
+                 helpText("Compare multiple counties. NDVI is shown weekly.")
+               ),
+               
+               mainPanel(
+                 tabsetPanel(
+                   tabPanel("2021", plotlyOutput("plot2021")),
+                   tabPanel("2022", plotlyOutput("plot2022")),
+                   tabPanel("2023", plotlyOutput("plot2023")),
+                   tabPanel("2024", plotlyOutput("plot2024"))
+                 )
                )
-             ),
-             
-             plotlyOutput("ndvi_timeseries", height = "500px")
+             )
     ),
+    
     
     
     tabPanel("County Analysis",

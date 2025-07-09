@@ -66,3 +66,83 @@ server <- function(input, output) {
 }
 
 shinyApp(ui = ui, server = server)
+
+
+#By County
+library(shiny)
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(plotly)
+
+# Load and clean all years
+load_ndvi <- function(file, year) {
+  read_csv(file) %>%
+    select(GEOID, county, date, mean) %>%
+    filter(!is.na(mean), county != "") %>%
+    mutate(date = as.Date(date), year = year)
+}
+
+ndvi_2021 <- load_ndvi("NDVI_VA_County_Weekly_2021.csv", 2021)
+ndvi_2022 <- load_ndvi("NDVI_VA_County_Weekly_2022.csv", 2022)
+ndvi_2023 <- load_ndvi("NDVI_VA_County_Weekly_2023.csv", 2023)
+ndvi_2024 <- load_ndvi("NDVI_VA_County_Weekly_2024.csv", 2024)
+
+ndvi_all <- bind_rows(ndvi_2021, ndvi_2022, ndvi_2023, ndvi_2024)
+
+# Get full county list
+county_list <- sort(unique(ndvi_all$county))
+
+# UI
+ui <- fluidPage(
+  titlePanel("Weekly NDVI in Virginia Corn Fields (2021–2024)"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("counties", "Select Counties to Compare:",
+                  choices = county_list,
+                  selected = county_list[1],
+                  multiple = TRUE),
+      helpText("Compare multiple counties. NDVI is shown weekly.")
+    ),
+    
+    mainPanel(
+      tabsetPanel(
+        tabPanel("2021", plotlyOutput("plot2021")),
+        tabPanel("2022", plotlyOutput("plot2022")),
+        tabPanel("2023", plotlyOutput("plot2023")),
+        tabPanel("2024", plotlyOutput("plot2024"))
+      )
+    )
+  )
+)
+
+# Server
+server <- function(input, output, session) {
+  
+  make_plot <- function(year) {
+    plot_data <- ndvi_all %>%
+      filter(year == !!year, county %in% input$counties)
+    
+    if (nrow(plot_data) == 0) return(NULL)
+    
+    p <- ggplot(plot_data, aes(x = date, y = mean, color = county, group = county)) +
+      geom_line(size = 1) +
+      geom_point(size = 2) +
+      labs(title = paste("NDVI by County -", year),
+           x = "Date (Weekly)",
+           y = "NDVI",
+           color = "County") +
+      theme_minimal()
+    
+    ggplotly(p, tooltip = c("x", "y", "color"))
+  }
+  
+  output$plot2021 <- renderPlotly({ make_plot(2021) })
+  output$plot2022 <- renderPlotly({ make_plot(2022) })
+  output$plot2023 <- renderPlotly({ make_plot(2023) })
+  output$plot2024 <- renderPlotly({ make_plot(2024) })
+}
+
+# Run app
+shinyApp(ui, server)

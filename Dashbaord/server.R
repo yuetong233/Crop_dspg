@@ -331,22 +331,28 @@ server <- function(input, output) {
   })
   
   #Remote sensing data 
-  ndvi_data <- read_csv("NDVI_weekly.csv") %>%
-    mutate(date = as.Date(date)) %>%
-    filter(!is.na(NDVI))
+  make_plot <- function(year) {
+    plot_data <- ndvi_all %>%
+      filter(year == !!year, county %in% input$counties)
+    
+    if (nrow(plot_data) == 0) return(NULL)
+    
+    p <- ggplot(plot_data, aes(x = date, y = mean, color = county, group = county)) +
+      geom_line(size = 1) +
+      geom_point(size = 2) +
+      labs(title = paste("NDVI by County -", year),
+           x = "Date (Weekly)",
+           y = "NDVI",
+           color = "County") +
+      theme_minimal()
+    
+    ggplotly(p, tooltip = c("x", "y", "color"))
+  }
   
-  output$ndvi_timeseries <- renderPlotly({
-    ndvi_data %>%
-      filter(year >= input$ndvi_year_range[1], year <= input$ndvi_year_range[2]) %>%
-      plot_ly(x = ~date, y = ~NDVI, type = "scatter", mode = "lines+markers",
-              line = list(color = "lightgreen", width = 2),
-              marker = list(color = "darkgreen", size = 5)) %>%
-      layout(
-        title = "Weekly NDVI over Corn Fields (Virginia)",
-        xaxis = list(title = "Date"),
-        yaxis = list(title = "NDVI", range = c(0, 1)),
-        hovermode = "x unified"
-      )
-  })
+  output$plot2021 <- renderPlotly({ make_plot(2021) })
+  output$plot2022 <- renderPlotly({ make_plot(2022) })
+  output$plot2023 <- renderPlotly({ make_plot(2023) })
+  output$plot2024 <- renderPlotly({ make_plot(2024) })
+  
   
 }
