@@ -67,3 +67,123 @@ server <- function(input, output) {
 }
 
 shinyApp(ui = ui, server = server)
+
+#By County 
+library(shiny)
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(plotly)
+
+# Load and preprocess data
+temp_2021 <- read_csv("MODIS_Temp_Weekly_VA_2021.csv", show_col_types = FALSE) %>%
+  mutate(date = as.Date(date), GEOID = as.character(GEOID), T_avg = (T_day + T_night) / 2, year = 2021)
+
+temp_2022 <- read_csv("MODIS_Temp_Weekly_VA_2022.csv", show_col_types = FALSE) %>%
+  mutate(date = as.Date(date), GEOID = as.character(GEOID), T_avg = (T_day + T_night) / 2, year = 2022)
+
+temp_2023 <- read_csv("MODIS_Temp_Weekly_VA_2023.csv", show_col_types = FALSE) %>%
+  mutate(date = as.Date(date), GEOID = as.character(GEOID), T_avg = (T_day + T_night) / 2, year = 2023)
+
+temp_2024 <- read_csv("MODIS_Temp_Weekly_VA_2024.csv", show_col_types = FALSE) %>%
+  mutate(date = as.Date(date), GEOID = as.character(GEOID), T_avg = (T_day + T_night) / 2, year = 2024)
+
+# Combine all years
+temp_all <- bind_rows(temp_2021, temp_2022, temp_2023, temp_2024)
+
+# UI
+ui <- fluidPage(
+  titlePanel("Rainbow Line Plot: Weekly Temperature by County"),
+  
+  p("The plot below shows weekly temperature trends (High, Low, or Average) across selected Virginia counties over time. 
+    You can select any number of counties and temperature types. This view helps compare temporal patterns and seasonal variation."),
+  
+  tabsetPanel(
+    tabPanel("2021",
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("counties_2021", "Select Counties:",
+                             choices = sort(unique(temp_all$county[temp_all$year == 2021])),
+                             selected = c("Loudoun", "Fairfax"),
+                             multiple = TRUE),
+                 selectInput("temp_type_2021", "Temperature Type:",
+                             choices = c("High (Day)" = "T_day", "Low (Night)" = "T_night", "Average" = "T_avg"),
+                             selected = "T_avg")
+               ),
+               mainPanel(plotlyOutput("plot_2021", height = "650px"))
+             )
+    ),
+    tabPanel("2022",
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("counties_2022", "Select Counties:",
+                             choices = sort(unique(temp_all$county[temp_all$year == 2022])),
+                             selected = c("Loudoun", "Fairfax"),
+                             multiple = TRUE),
+                 selectInput("temp_type_2022", "Temperature Type:",
+                             choices = c("High (Day)" = "T_day", "Low (Night)" = "T_night", "Average" = "T_avg"),
+                             selected = "T_avg")
+               ),
+               mainPanel(plotlyOutput("plot_2022", height = "650px"))
+             )
+    ),
+    tabPanel("2023",
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("counties_2023", "Select Counties:",
+                             choices = sort(unique(temp_all$county[temp_all$year == 2023])),
+                             selected = c("Loudoun", "Fairfax"),
+                             multiple = TRUE),
+                 selectInput("temp_type_2023", "Temperature Type:",
+                             choices = c("High (Day)" = "T_day", "Low (Night)" = "T_night", "Average" = "T_avg"),
+                             selected = "T_avg")
+               ),
+               mainPanel(plotlyOutput("plot_2023", height = "650px"))
+             )
+    ),
+    tabPanel("2024",
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("counties_2024", "Select Counties:",
+                             choices = sort(unique(temp_all$county[temp_all$year == 2024])),
+                             selected = c("Loudoun", "Fairfax"),
+                             multiple = TRUE),
+                 selectInput("temp_type_2024", "Temperature Type:",
+                             choices = c("High (Day)" = "T_day", "Low (Night)" = "T_night", "Average" = "T_avg"),
+                             selected = "T_avg")
+               ),
+               mainPanel(plotlyOutput("plot_2024", height = "650px"))
+             )
+    )
+  )
+)
+
+# Server
+server <- function(input, output, session) {
+  make_plot <- function(year_input, counties, temp_type) {
+    filtered <- temp_all %>%
+      filter(year == year_input, county %in% counties)
+    
+    p <- ggplot(filtered, aes(x = date, y = .data[[temp_type]], color = county)) +
+      geom_line(size = 1.2) +
+      scale_color_manual(values = rainbow(length(unique(filtered$county)))) +
+      labs(
+        title = paste(year_input, "-", names(which(c(T_day = "High (Day)", T_night = "Low (Night)", T_avg = "Average") == temp_type)),
+                      "Temperature by County"),
+        x = "Week",
+        y = "Temperature (°C)",
+        color = "County"
+      ) +
+      theme_minimal()
+    
+    ggplotly(p, tooltip = c("x", "y", "color"))
+  }
+  
+  output$plot_2021 <- renderPlotly({ req(input$counties_2021); make_plot(2021, input$counties_2021, input$temp_type_2021) })
+  output$plot_2022 <- renderPlotly({ req(input$counties_2022); make_plot(2022, input$counties_2022, input$temp_type_2022) })
+  output$plot_2023 <- renderPlotly({ req(input$counties_2023); make_plot(2023, input$counties_2023, input$temp_type_2023) })
+  output$plot_2024 <- renderPlotly({ req(input$counties_2024); make_plot(2024, input$counties_2024, input$temp_type_2024) })
+}
+
+# Run app
+shinyApp(ui, server)
