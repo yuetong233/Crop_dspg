@@ -270,4 +270,79 @@ shinyApp(ui, server)
 
 
 #TOP 10
+library(shiny)
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(plotly)
 
+# Helper function to load the correct CSV based on year and type
+load_top10_data <- function(year, temp_type) {
+  file_map <- list(
+    "Average" = paste0("Top10_TempAvg_", year, ".csv"),
+    "High" = paste0("Top10_TempHigh_", year, ".csv"),
+    "Low" = paste0("Top10_TempLow_", year, ".csv")
+  )
+  
+  df <- read_csv(file_map[[temp_type]], show_col_types = FALSE) %>%
+    mutate(date = as.Date(date))
+  return(df)
+}
+
+# UI
+ui <- fluidPage(
+  titlePanel("Top 10 Counties – MODIS Weekly Temperature (2021–2024)"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("selected_year", "Select Year:", choices = 2021:2024, selected = 2024),
+      selectInput("temp_type", "Temperature Type:",
+                  choices = c("Average", "High", "Low"), selected = "Average"),
+      uiOutput("county_ui")
+    ),
+    
+    mainPanel(
+      plotlyOutput("top10_plot", height = "600px")
+    )
+  )
+)
+
+# Server
+server <- function(input, output, session) {
+  # Reactive data based on selected year and type
+  temp_data <- reactive({
+    load_top10_data(input$selected_year, input$temp_type)
+  })
+  
+  # Update county choices dynamically
+  output$county_ui <- renderUI({
+    counties <- unique(temp_data()$county)
+    selectInput("selected_counties", "Select Counties:",
+                choices = counties, selected = counties[1], multiple = TRUE)
+  })
+  
+  # Render plot
+  output$top10_plot <- renderPlotly({
+    req(input$selected_counties)
+    df <- temp_data() %>% filter(county %in% input$selected_counties)
+    
+    var_name <- switch(input$temp_type,
+                       "Average" = "T_avg",
+                       "High" = "T_day",
+                       "Low" = "T_night")
+    
+    p <- ggplot(df, aes(x = date, y = .data[[var_name]], color = county)) +
+      geom_line(linewidth = 1.2) +
+      geom_point(size = 2) +
+      labs(
+        title = paste(input$temp_type, "Temperature Trends –", input$selected_year),
+        x = "Date", y = "Temperature (°C)", color = "County"
+      ) +
+      theme_minimal()
+    
+    ggplotly(p, tooltip = c("x", "y", "color"))
+  })
+}
+
+# Run the app
+shinyApp(ui, server)
