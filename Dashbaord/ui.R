@@ -187,39 +187,65 @@ ui <- fluidPage(
     
     tabPanel("Remote Sensing",
              h4("About This Data"),
-             p("This section presents weekly Normalized Difference Vegetation Index (NDVI) values over Virginia corn fields from 2021 through the current week. NDVI is derived from Landsat 8 satellite imagery using the formula:"),
+             p("This section presents weekly Normalized Difference Vegetation Index (NDVI) values over Virginia corn fields from 2021 through 2024."),
+             p("NDVI is calculated using Landsat 8 imagery with the formula:"),
              tags$ul(
                tags$li("NDVI = (NIR - Red) / (NIR + Red)"),
                tags$li("NIR = Near Infrared (Band 5), Red = Band 4"),
-               tags$li("NDVI values range from -1 to 1, where higher values indicate healthier vegetation")
+               tags$li("NDVI values range from -1 to 1, where higher values indicate healthier vegetation.")
              ),
-             p("The data was processed using Google Earth Engine, filtered to include only corn-growing areas using the USDA Cropland Data Layer, cloud masked, and exported as weekly averages."),
-             p("This NDVI trend serves as a remote-sensing-based proxy for crop condition and vegetative health."),
+             p("The data was processed using Google Earth Engine, filtered using USDA Cropland Data Layers to isolate corn-growing areas, and aggregated at the county level."),
+             p("This tab contains two sections:"),
+             tags$ul(
+               tags$li(strong("Recent Trends:"), " NDVI trends for all Virginia counties during the most recent 6 months of each year (2021–2024)."),
+               tags$li(strong("Top 10 Corn Counties:"), " Full-season NDVI for the ten counties with the highest data availability for each year.")
+             ),
              
+             # Section 1: Recent Trends (All Counties, Last 6 Months)
              br(),
-             
+             h4("Recent NDVI Trends (All Counties – Last 6 Months)"),
              sidebarLayout(
                sidebarPanel(
-                 selectInput("counties", "Select Counties to Compare:",
-                             choices = county_list,
-                             selected = county_list[1],
-                             multiple = TRUE),
-                 helpText("Compare multiple counties. NDVI is shown weekly.")
+                 selectInput("ndvi_recent_year", "Select Year:", choices = NULL, selected = NULL),
+                 selectInput("ndvi_recent_counties", "Select Counties:", choices = NULL, selected = NULL, multiple = TRUE),
+                 helpText("You can compare NDVI across multiple counties for the selected year.")
                ),
-               
                mainPanel(
-                 tabsetPanel(
-                   tabPanel("2021", plotlyOutput("plot2021")),
-                   tabPanel("2022", plotlyOutput("plot2022")),
-                   tabPanel("2023", plotlyOutput("plot2023")),
-                   tabPanel("2024", plotlyOutput("plot2024"))
-                 )
+                 plotlyOutput("ndvi_recent_plot", height = "500px")
+               )
+             ),
+             
+             # Section 2: Top 10 Counties (Full-Year)
+             br(), br(),
+             h4("Top 10 Corn Counties (Full Year NDVI by Year)"),
+             tabsetPanel(
+               tabPanel("2021",
+                        sidebarLayout(
+                          sidebarPanel(selectInput("c2021", "Select County:", choices = NULL, multiple = TRUE)),
+                          mainPanel(plotlyOutput("plot2021"))
+                        )
+               ),
+               tabPanel("2022",
+                        sidebarLayout(
+                          sidebarPanel(selectInput("c2022", "Select County:", choices = NULL, multiple = TRUE)),
+                          mainPanel(plotlyOutput("plot2022"))
+                        )
+               ),
+               tabPanel("2023",
+                        sidebarLayout(
+                          sidebarPanel(selectInput("c2023", "Select County:", choices = NULL, multiple = TRUE)),
+                          mainPanel(plotlyOutput("plot2023"))
+                        )
+               ),
+               tabPanel("2024",
+                        sidebarLayout(
+                          sidebarPanel(selectInput("c2024", "Select County:", choices = NULL, multiple = TRUE)),
+                          mainPanel(plotlyOutput("plot2024"))
+                        )
                )
              )
     ),
-    
-    
-    
+
     tabPanel("County Analysis",
              h4("About This Data"),
              p("This section displays total corn acres planted and harvested across Virginia, Maryland, and North Carolina, based on real-time data from the USDA National Agricultural Statistics Service (NASS) API. The data automatically updates as new information becomes available, including the 2025 crop conditions once they are released later this year."),

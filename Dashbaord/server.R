@@ -331,28 +331,72 @@ server <- function(input, output) {
   })
   
   #Remote sensing data 
-  make_plot <- function(year) {
-    plot_data <- ndvi_all %>%
-      filter(year == !!year, county %in% input$counties)
+  # Load Top 10 NDVI data
+  top10_2021 <- read_csv("Top10_2021.csv", show_col_types = FALSE)
+  top10_2022 <- read_csv("Top10_2022.csv", show_col_types = FALSE)
+  top10_2023 <- read_csv("Top10_2023.csv", show_col_types = FALSE)
+  top10_2024 <- read_csv("Top10_2024.csv", show_col_types = FALSE)
+  
+  # Update county dropdowns in UI
+  observe({
+    updateSelectInput(inputId = "c2021", choices = sort(unique(top10_2021$county)), selected = top10_2021$county[1])
+    updateSelectInput(inputId = "c2022", choices = sort(unique(top10_2022$county)), selected = top10_2022$county[1])
+    updateSelectInput(inputId = "c2023", choices = sort(unique(top10_2023$county)), selected = top10_2023$county[1])
+    updateSelectInput(inputId = "c2024", choices = sort(unique(top10_2024$county)), selected = top10_2024$county[1])
+  })
+  
+  # NDVI plotting function
+  make_plot_top10 <- function(df, counties, year) {
+    df <- df %>% filter(county %in% counties)
+    if (nrow(df) == 0) return(NULL)
     
-    if (nrow(plot_data) == 0) return(NULL)
-    
-    p <- ggplot(plot_data, aes(x = date, y = mean, color = county, group = county)) +
+    p <- ggplot(df, aes(x = date, y = mean, color = county)) +
       geom_line(size = 1) +
       geom_point(size = 2) +
-      labs(title = paste("NDVI by County -", year),
-           x = "Date (Weekly)",
-           y = "NDVI",
-           color = "County") +
+      labs(title = paste("NDVI – Top 10 Corn Counties (", year, ")", sep = ""),
+           x = "Date", y = "NDVI") +
       theme_minimal()
     
     ggplotly(p, tooltip = c("x", "y", "color"))
   }
   
-  output$plot2021 <- renderPlotly({ make_plot(2021) })
-  output$plot2022 <- renderPlotly({ make_plot(2022) })
-  output$plot2023 <- renderPlotly({ make_plot(2023) })
-  output$plot2024 <- renderPlotly({ make_plot(2024) })
+  # Output plots per year
+  output$plot2021 <- renderPlotly({ make_plot_top10(top10_2021, input$c2021, 2021) })
+  output$plot2022 <- renderPlotly({ make_plot_top10(top10_2022, input$c2022, 2022) })
+  output$plot2023 <- renderPlotly({ make_plot_top10(top10_2023, input$c2023, 2023) })
+  output$plot2024 <- renderPlotly({ make_plot_top10(top10_2024, input$c2024, 2024) })
   
+  ndvi_recent <- read_csv("NDVI_Recent2Weeks.csv", show_col_types = FALSE) %>%
+    filter(!is.na(mean), county != "") %>%
+    mutate(date = as.Date(date))
   
+  observe({
+    updateSelectInput(inputId = "ndvi_recent_year", 
+                      choices = sort(unique(ndvi_recent$year)), 
+                      selected = max(ndvi_recent$year))
+    
+    updateSelectInput(inputId = "ndvi_recent_counties", 
+                      choices = sort(unique(ndvi_recent$county)), 
+                      selected = sort(unique(ndvi_recent$county))[1])
+  })
+  
+  output$ndvi_recent_plot <- renderPlotly({
+    req(input$ndvi_recent_year, input$ndvi_recent_counties)
+    
+    df <- ndvi_recent %>%
+      filter(year == input$ndvi_recent_year, county %in% input$ndvi_recent_counties)
+    
+    if (nrow(df) == 0) return(NULL)
+    
+    p <- ggplot(df, aes(x = date, y = mean, color = county, group = county)) +
+      geom_line(size = 1) +
+      geom_point(size = 2) +
+      labs(title = paste("NDVI by County –", input$ndvi_recent_year),
+           x = "Date", y = "NDVI", color = "County") +
+      theme_minimal()
+    
+    ggplotly(p, tooltip = c("x", "y", "color"))
+  })
+  
+
 }

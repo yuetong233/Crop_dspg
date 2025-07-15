@@ -42,7 +42,7 @@ year_list <- sort(unique(ndvi_recent$year))
 
 # UI
 ui <- fluidPage(
-  titlePanel("NDVI by County – Most Recent 2 Weeks (2021–2024)"),
+  titlePanel("NDVI by County – Most Recent 6 Months (2021–2024)"),
   
   sidebarLayout(
     sidebarPanel(

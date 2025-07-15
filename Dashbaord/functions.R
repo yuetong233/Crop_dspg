@@ -205,22 +205,17 @@ get_avg_data <- function(year, category) {
 }
 
 #Remote Sensing Data
-load_ndvi <- function(file, year) {
-  read_csv(file) %>%
+# NDVI: Top 10 Counties Helper
+process_top10_by_year <- function(file, year) {
+  df <- read_csv(file, show_col_types = FALSE) %>%
     select(GEOID, county, date, mean) %>%
     filter(!is.na(mean), county != "") %>%
     mutate(date = as.Date(date), year = year)
+  
+  top10 <- df %>%
+    count(county, sort = TRUE) %>%
+    slice_head(n = 10) %>%
+    pull(county)
+  
+  df %>% filter(county %in% top10)
 }
-
-ndvi_2021 <- load_ndvi("NDVI_VA_County_Weekly_2021.csv", 2021)
-ndvi_2022 <- load_ndvi("NDVI_VA_County_Weekly_2022.csv", 2022)
-ndvi_2023 <- load_ndvi("NDVI_VA_County_Weekly_2023.csv", 2023)
-ndvi_2024 <- load_ndvi("NDVI_VA_County_Weekly_2024.csv", 2024)
-
-ndvi_all <- bind_rows(ndvi_2021, ndvi_2022, ndvi_2023, ndvi_2024)
-county_list <- sort(unique(ndvi_all$county))
-
-
-
-
-
