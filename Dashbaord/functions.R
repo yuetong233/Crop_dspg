@@ -11,6 +11,9 @@ library(zoo)
 library(leaflet)
 library(sf)
 library(tigris)
+library(lubridate)
+library(stringr)
+library(tidyr)
 options(tigris_use_cache = TRUE)
 
 #API Key

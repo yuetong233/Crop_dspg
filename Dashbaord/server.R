@@ -278,125 +278,125 @@ server <- function(input, output) {
   
   # Render yield forecast plot
   output$yield_forecast <- renderPlotly({
-    condition_data <- get_condition_data()
-    req(condition_data)
+    # 1. Query weekly crop condition data for Corn in Virginia, 2025
+    corn_conditions <- nassqs(
+      list(
+        commodity_desc = "CORN",
+        statisticcat_desc = "CONDITION",
+        agg_level_desc = "STATE",
+        state_name = "VIRGINIA",
+        year = "2025"
+      )
+    )
     
-    # Get historical trend yield (using average of last 5 years)
-    historical_yield <- yield_data() %>%
-      filter(State == "VA") %>%
-      group_by(year) %>%
-      summarise(avg_yield = mean(Value, na.rm = TRUE)) %>%
-      tail(5) %>%
-      summarise(trend_yield = mean(avg_yield, na.rm = TRUE)) %>%
-      pull(trend_yield)
+    # Debug: print structure and head of corn_conditions
+    print(head(corn_conditions))
+    str(corn_conditions)
     
-    # Calculate deviations
-    deviations <- calculate_yield_deviation(condition_data)
-    req(deviations)
+    # Add this check:
+    if (nrow(corn_conditions) == 0) {
+      return(plotly::plotly_empty(type = "scatter", mode = "lines") %>%
+               layout(title = list(text = "No crop condition data available for 2025")))
+    }
     
-    # Calculate forecasted yields
-    forecast_data <- deviations %>%
+    # 2. Clean and reshape the data
+    weekly_conditions <- corn_conditions %>%
+      select(week_ending, short_desc, Value) %>%
       mutate(
-        forecasted_yield = (1 + deviation_pct/100) * historical_yield,
-        trend_line = historical_yield
+        Week = as.Date(week_ending),
+        Condition = dplyr::case_when(
+          stringr::str_detect(short_desc, "EXCELLENT") ~ "Excellent",
+          stringr::str_detect(short_desc, "GOOD") ~ "Good",
+          stringr::str_detect(short_desc, "FAIR") ~ "Fair",
+          stringr::str_detect(short_desc, "POOR") & !stringr::str_detect(short_desc, "VERY") ~ "Poor",
+          TRUE ~ NA_character_
+        ),
+        Value = as.numeric(Value)
+      ) %>%
+      filter(!is.na(Condition)) %>%
+      group_by(Week, Condition) %>%
+      summarise(Value = mean(Value, na.rm = TRUE), .groups = "drop") %>%
+      tidyr::pivot_wider(names_from = Condition, values_from = Value) %>%
+      arrange(Week)
+    
+    # Check for all NA in Week
+    if (all(is.na(weekly_conditions$Week))) {
+      return(plotly::plotly_empty(type = "scatter", mode = "lines") %>%
+               layout(title = list(text = "No valid week-ending dates in crop condition data")))
+    }
+    
+    # Ensure all expected columns exist
+    for (col in c("Poor", "Fair", "Good", "Excellent")) {
+      if (!col %in% names(weekly_conditions)) {
+        weekly_conditions[[col]] <- 0
+      }
+    }
+    
+    # Replace NA with 0 for condition columns
+    weekly_conditions <- weekly_conditions %>%
+      mutate(
+        Poor = ifelse(is.na(Poor), 0, Poor),
+        Fair = ifelse(is.na(Fair), 0, Fair),
+        Good = ifelse(is.na(Good), 0, Good),
+        Excellent = ifelse(is.na(Excellent), 0, Excellent)
       )
     
-    plot_ly() %>%
-      add_trace(
-        data = forecast_data,
-        x = ~week,
-        y = ~forecasted_yield,
-        type = "scatter",
-        mode = "lines+markers",
-        name = "Forecasted Yield",
-        line = list(color = "#2e7d32", width = 2),
-        marker = list(color = "#66bb6a", size = 8)
-      ) %>%
-      add_trace(
-        data = forecast_data,
-        x = ~week,
-        y = ~trend_line,
-        type = "scatter",
-        mode = "lines",
-        name = "Trend Yield",
-        line = list(color = "#666666", width = 2, dash = "dash")
-      ) %>%
-      layout(
-        title = "Yield Forecast vs Trend",
-        xaxis = list(title = "Week Ending"),
-        yaxis = list(title = "Yield (bushels/acre)"),
-        showlegend = TRUE,
-        legend = list(orientation = "h", y = -0.2)
+    # 3. Regression coefficients and trend yield
+    intercept <- -0.304165831
+    coef_poor <- -0.000678391
+    coef_fair <- 0.000165538
+    coef_good <- 0.003902026
+    coef_excellent <- 0.007679806
+    trend_yield_2025 <- 146.0
+    
+    # 4. Forecast weekly yield
+    forecast_df <- weekly_conditions %>%
+      mutate(
+        ForecastDeviation = intercept +
+          coef_poor * Poor +
+          coef_fair * Fair +
+          coef_good * Good +
+          coef_excellent * Excellent,
+        ForecastYield = (1 + ForecastDeviation) * trend_yield_2025
       )
+    
+    # Filter out rows with NA in Week or ForecastYield
+    forecast_df <- forecast_df %>%
+      filter(!is.na(Week), !is.na(ForecastYield))
+    
+    # 5. Plot with Plotly
+    p <- ggplot(forecast_df, aes(x = Week, y = ForecastYield)) +
+      geom_line(color = "forestgreen", size = 1.5) +
+      geom_point(color = "darkgreen") +
+      geom_hline(yintercept = trend_yield_2025, linetype = "dashed", color = "gray30") +
+      labs(
+        title = "Weekly Forecasted Corn Yield (Virginia, 2025)",
+        subtitle = "Based on USDA Crop Conditions & Regression Model",
+        x = "Week Ending",
+        y = "Forecasted Yield (bu/acre)"
+      ) +
+      theme_minimal(base_size = 14)
+    
+    plotly::ggplotly(p)
   })
   
   #Remote sensing data 
-  # Load Top 10 NDVI data
-  top10_2021 <- read_csv("Top10_2021.csv", show_col_types = FALSE)
-  top10_2022 <- read_csv("Top10_2022.csv", show_col_types = FALSE)
-  top10_2023 <- read_csv("Top10_2023.csv", show_col_types = FALSE)
-  top10_2024 <- read_csv("Top10_2024.csv", show_col_types = FALSE)
+  ndvi_data <- read_csv("NDVI_weekly.csv") %>%
+    mutate(date = as.Date(date)) %>%
+    filter(!is.na(NDVI))
   
-  # Update county dropdowns in UI
-  observe({
-    updateSelectInput(inputId = "c2021", choices = sort(unique(top10_2021$county)), selected = top10_2021$county[1])
-    updateSelectInput(inputId = "c2022", choices = sort(unique(top10_2022$county)), selected = top10_2022$county[1])
-    updateSelectInput(inputId = "c2023", choices = sort(unique(top10_2023$county)), selected = top10_2023$county[1])
-    updateSelectInput(inputId = "c2024", choices = sort(unique(top10_2024$county)), selected = top10_2024$county[1])
+  output$ndvi_timeseries <- renderPlotly({
+    ndvi_data %>%
+      filter(year >= input$ndvi_year_range[1], year <= input$ndvi_year_range[2]) %>%
+      plot_ly(x = ~date, y = ~NDVI, type = "scatter", mode = "lines+markers",
+              line = list(color = "lightgreen", width = 2),
+              marker = list(color = "darkgreen", size = 5)) %>%
+      layout(
+        title = "Weekly NDVI over Corn Fields (Virginia)",
+        xaxis = list(title = "Date"),
+        yaxis = list(title = "NDVI", range = c(0, 1)),
+        hovermode = "x unified"
+      )
   })
   
-  # NDVI plotting function
-  make_plot_top10 <- function(df, counties, year) {
-    df <- df %>% filter(county %in% counties)
-    if (nrow(df) == 0) return(NULL)
-    
-    p <- ggplot(df, aes(x = date, y = mean, color = county)) +
-      geom_line(size = 1) +
-      geom_point(size = 2) +
-      labs(title = paste("NDVI – Top 10 Corn Counties (", year, ")", sep = ""),
-           x = "Date", y = "NDVI") +
-      theme_minimal()
-    
-    ggplotly(p, tooltip = c("x", "y", "color"))
-  }
-  
-  # Output plots per year
-  output$plot2021 <- renderPlotly({ make_plot_top10(top10_2021, input$c2021, 2021) })
-  output$plot2022 <- renderPlotly({ make_plot_top10(top10_2022, input$c2022, 2022) })
-  output$plot2023 <- renderPlotly({ make_plot_top10(top10_2023, input$c2023, 2023) })
-  output$plot2024 <- renderPlotly({ make_plot_top10(top10_2024, input$c2024, 2024) })
-  
-  ndvi_recent <- read_csv("NDVI_Recent2Weeks.csv", show_col_types = FALSE) %>%
-    filter(!is.na(mean), county != "") %>%
-    mutate(date = as.Date(date))
-  
-  observe({
-    updateSelectInput(inputId = "ndvi_recent_year", 
-                      choices = sort(unique(ndvi_recent$year)), 
-                      selected = max(ndvi_recent$year))
-    
-    updateSelectInput(inputId = "ndvi_recent_counties", 
-                      choices = sort(unique(ndvi_recent$county)), 
-                      selected = sort(unique(ndvi_recent$county))[1])
-  })
-  
-  output$ndvi_recent_plot <- renderPlotly({
-    req(input$ndvi_recent_year, input$ndvi_recent_counties)
-    
-    df <- ndvi_recent %>%
-      filter(year == input$ndvi_recent_year, county %in% input$ndvi_recent_counties)
-    
-    if (nrow(df) == 0) return(NULL)
-    
-    p <- ggplot(df, aes(x = date, y = mean, color = county, group = county)) +
-      geom_line(size = 1) +
-      geom_point(size = 2) +
-      labs(title = paste("NDVI by County –", input$ndvi_recent_year),
-           x = "Date", y = "NDVI", color = "County") +
-      theme_minimal()
-    
-    ggplotly(p, tooltip = c("x", "y", "color"))
-  })
-  
-
 }
