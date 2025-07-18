@@ -50,7 +50,7 @@ server <- function(input, output, session) {
   
   # Load recent 6-month filtered file for selected year
   recent_data <- reactive({
-    file <- paste0("Filtered_MODIS_Temp_", input$year, "_smaller.csv")
+    file <- paste0("Filtered_MODIS_Temp_", input$year, ".csv")
     read_csv(file, show_col_types = FALSE) %>%
       mutate(date = as.Date(date), year = year(date))
   })
