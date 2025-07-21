@@ -1,6 +1,6 @@
 #Server
 source("functions.R")
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   yield_data_all <- read_csv("yield_data_cache.csv", show_col_types = FALSE)
   
@@ -381,22 +381,76 @@ server <- function(input, output) {
   })
   
   #Remote sensing data 
-  ndvi_data <- read_csv("NDVI_weekly.csv") %>%
-    mutate(date = as.Date(date)) %>%
-    filter(!is.na(NDVI))
+  # Load all data
+  ndvi_recent_data <- ndvi_recent_all()
+  ndvi_top10 <- ndvi_top10_data()
+  temp_top10 <- temp_top10_all()
+  temp_recent <- temp_recent_all()
   
-  output$ndvi_timeseries <- renderPlotly({
-    ndvi_data %>%
-      filter(year >= input$ndvi_year_range[1], year <= input$ndvi_year_range[2]) %>%
-      plot_ly(x = ~date, y = ~NDVI, type = "scatter", mode = "lines+markers",
-              line = list(color = "lightgreen", width = 2),
-              marker = list(color = "darkgreen", size = 5)) %>%
-      layout(
-        title = "Weekly NDVI over Corn Fields (Virginia)",
-        xaxis = list(title = "Date"),
-        yaxis = list(title = "NDVI", range = c(0, 1)),
-        hovermode = "x unified"
-      )
+  # Update county choices
+  observe({
+    req(input$ndvi_source)
+    counties <- if (input$ndvi_source == "Top 10 Counties") {
+      unique(ndvi_top10$county)
+    } else {
+      unique(ndvi_recent_data$county)
+    }
+    updateSelectInput(session, "ndvi_county_selector", choices = counties)
   })
+  
+  observe({
+    req(input$temp_source)
+    counties <- if (input$temp_source == "Top 10 Counties") {
+      unique(temp_top10[[input$temp_type]]$county)
+    } else {
+      unique(temp_recent[[input$temp_type]]$county)
+    }
+    updateSelectInput(session, "temp_county_selector", choices = counties)
+  })
+  
+  # NDVI Plot
+  output$ndvi_plot <- renderPlotly({
+    req(input$ndvi_source, input$ndvi_year, input$ndvi_county_selector)
+    
+    df <- if (input$ndvi_source == "Top 10 Counties") ndvi_top10 else ndvi_recent_data
+    
+    df %>%
+      filter(
+        year == input$ndvi_year,
+        county %in% input$ndvi_county_selector,
+        lubridate::month(date) %in% c(7:12, 1)  # July to January
+      ) %>%
+      ggplot(aes(x = date, y = NDVI_mean, color = county)) +
+      geom_line(size = 1) +
+      labs(
+        title = paste("NDVI (July–January) -", input$ndvi_source),
+        x = "Date", y = "NDVI"
+      ) +
+      theme_minimal() -> p
+    
+    ggplotly(p)
+  })
+  
+  
+  # Temperature Plot
+  output$temp_plot <- renderPlotly({
+    req(input$temp_source, input$temp_year, input$temp_type, input$temp_county_selector)
+    df <- if (input$temp_source == "Top 10 Counties") {
+      temp_top10[[input$temp_type]]
+    } else {
+      temp_recent[[input$temp_type]]
+    }
+    
+    df %>%
+      filter(year == input$temp_year, county %in% input$temp_county_selector) %>%
+      ggplot(aes(x = date, y = T_avg, color = county)) +
+      geom_line(size = 1) +
+      labs(title = paste(input$temp_type, "Temperature -", input$temp_source),
+           x = "Date", y = paste(input$temp_type, "Temperature (°C)")) +
+      theme_minimal() -> p
+    
+    ggplotly(p)
+  })
+  
   
 }

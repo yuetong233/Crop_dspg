@@ -185,66 +185,55 @@ ui <- fluidPage(
              }))
     ),
     
+  
     tabPanel("Remote Sensing",
              h4("About This Data"),
-             p("This section presents weekly Normalized Difference Vegetation Index (NDVI) values over Virginia corn fields from 2021 through 2024."),
-             p("NDVI is calculated using Landsat 8 imagery with the formula:"),
+             p("This section presents weekly vegetation health and temperature data over Virginia corn fields from 2021 through 2024."),
+             
+             h4("Understanding NDVI"),
+             p("NDVI (Normalized Difference Vegetation Index) is calculated using Landsat 8 imagery with the formula:"),
              tags$ul(
                tags$li("NDVI = (NIR - Red) / (NIR + Red)"),
                tags$li("NIR = Near Infrared (Band 5), Red = Band 4"),
                tags$li("NDVI values range from -1 to 1, where higher values indicate healthier vegetation.")
              ),
              p("The data was processed using Google Earth Engine, filtered using USDA Cropland Data Layers to isolate corn-growing areas, and aggregated at the county level."),
-             p("This tab contains two sections:"),
-             tags$ul(
-               tags$li(strong("Recent Trends:"), " NDVI trends for all Virginia counties during the most recent 6 months of each year (2021–2024)."),
-               tags$li(strong("Top 10 Corn Counties:"), " Full-season NDVI for the ten counties with the highest data availability for each year.")
-             ),
              
-             # Section 1: Recent Trends (All Counties, Last 6 Months)
              br(),
-             h4("Recent NDVI Trends (All Counties – Last 6 Months)"),
+             h4("Compare NDVI and MODIS Temperature Trends"),
+             
              sidebarLayout(
                sidebarPanel(
-                 selectInput("ndvi_recent_year", "Select Year:", choices = NULL, selected = NULL),
-                 selectInput("ndvi_recent_counties", "Select Counties:", choices = NULL, selected = NULL, multiple = TRUE),
-                 helpText("You can compare NDVI across multiple counties for the selected year.")
+                 h5("NDVI Controls"),
+                 radioButtons("ndvi_source", "NDVI Dataset:",
+                              choices = c("Top 10 Counties", "Last 6 Months"),
+                              selected = "Last 6 Months"),
+                 selectInput("ndvi_year", "NDVI Year:", choices = 2021:2024, selected = 2024),
+                 selectInput("ndvi_county_selector", "NDVI Counties:", choices = NULL, multiple = TRUE),
+                 
+                 br(), hr(),
+                 
+                 h5("Temperature Controls"),
+                 radioButtons("temp_source", "Temperature Dataset:",
+                              choices = c("Top 10 Counties", "Last 6 Months"),
+                              selected = "Top 10 Counties"),
+                 selectInput("temp_year", "Temperature Year:", choices = 2021:2024, selected = 2024),
+                 selectInput("temp_type", "Temperature Type:", choices = c("Average", "High", "Low"), selected = "Average"),
+                 selectInput("temp_county_selector", "Temperature Counties:", choices = NULL, multiple = TRUE)
                ),
+               
                mainPanel(
-                 plotlyOutput("ndvi_recent_plot", height = "500px")
-               )
-             ),
-             
-             # Section 2: Top 10 Counties (Full-Year)
-             br(), br(),
-             h4("Top 10 Corn Counties (Full Year NDVI by Year)"),
-             tabsetPanel(
-               tabPanel("2021",
-                        sidebarLayout(
-                          sidebarPanel(selectInput("c2021", "Select County:", choices = NULL, multiple = TRUE)),
-                          mainPanel(plotlyOutput("plot2021"))
-                        )
-               ),
-               tabPanel("2022",
-                        sidebarLayout(
-                          sidebarPanel(selectInput("c2022", "Select County:", choices = NULL, multiple = TRUE)),
-                          mainPanel(plotlyOutput("plot2022"))
-                        )
-               ),
-               tabPanel("2023",
-                        sidebarLayout(
-                          sidebarPanel(selectInput("c2023", "Select County:", choices = NULL, multiple = TRUE)),
-                          mainPanel(plotlyOutput("plot2023"))
-                        )
-               ),
-               tabPanel("2024",
-                        sidebarLayout(
-                          sidebarPanel(selectInput("c2024", "Select County:", choices = NULL, multiple = TRUE)),
-                          mainPanel(plotlyOutput("plot2024"))
-                        )
+                 tabsetPanel(
+                   tabPanel("NDVI Plot", plotlyOutput("ndvi_plot", height = "500px")),
+                   tabPanel("Temperature Plot", plotlyOutput("temp_plot", height = "500px"))
+                 )
                )
              )
     ),
+    
+    
+    
+    
 
     tabPanel("County Analysis",
              h4("About This Data"),
