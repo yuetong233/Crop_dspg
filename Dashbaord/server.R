@@ -411,7 +411,7 @@ server <- function(input, output, session) {
   
   # NDVI Plot
   output$ndvi_plot <- renderPlotly({
-    req(input$ndvi_source, input$ndvi_county_selector)
+    req(input$ndvi_source, input$ndvi_county_selector, input$ndvi_year)
     
     df <- if (input$ndvi_source == "Top 10 Counties") {
       ndvi_top10
@@ -420,16 +420,18 @@ server <- function(input, output, session) {
     }
     
     filtered_df <- df %>%
-      filter(county %in% input$ndvi_county_selector)
+      filter(county %in% input$ndvi_county_selector) %>%
+      filter(lubridate::year(date) == input$ndvi_year) %>%
+      filter(lubridate::month(date) >= 5 & lubridate::month(date) <= 9)  # May–September only
     
     validate(
-      need(nrow(filtered_df) > 0, "No NDVI data found for the selected county.")
+      need(nrow(filtered_df) > 0, "No NDVI data found for the selected county and year.")
     )
     
     p <- ggplot(filtered_df, aes(x = date, y = mean_NDVI, color = county)) +
-      geom_point(size = 2) +  # scatter plot
+      geom_point(size = 2) +
       labs(
-        title = paste("NDVI Trends -", input$ndvi_source),
+        title = paste("NDVI Trends (May–Sept)", input$ndvi_year, "-", input$ndvi_source),
         x = "Date", y = "NDVI"
       ) +
       theme_minimal()
@@ -438,27 +440,6 @@ server <- function(input, output, session) {
   })
   
   
-  
-  
-  # Temperature Plot
-  output$temp_plot <- renderPlotly({
-    req(input$temp_source, input$temp_year, input$temp_type, input$temp_county_selector)
-    df <- if (input$temp_source == "Top 10 Counties") {
-      temp_top10[[input$temp_type]]
-    } else {
-      temp_recent[[input$temp_type]]
-    }
-    
-    df %>%
-      filter(year == input$temp_year, county %in% input$temp_county_selector) %>%
-      ggplot(aes(x = date, y = T_avg, color = county)) +
-      geom_line(size = 1) +
-      labs(title = paste(input$temp_type, "Temperature -", input$temp_source),
-           x = "Date", y = paste(input$temp_type, "Temperature (°C)")) +
-      theme_minimal() -> p
-    
-    ggplotly(p)
-  })
   
   
   
