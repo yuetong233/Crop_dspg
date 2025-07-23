@@ -383,7 +383,8 @@ server <- function(input, output, session) {
   #Remote sensing data 
   # Load all data
   ndvi_recent_data <- ndvi_recent_all()
-  ndvi_top10 <- ndvi_top10_data()
+  ndvi_top10 <- ndvi_top10_data() %>%
+    rename(mean_NDVI = NDVI_mean)
   temp_top10 <- temp_top10_all()
   temp_recent <- temp_recent_all()
   
@@ -410,26 +411,33 @@ server <- function(input, output, session) {
   
   # NDVI Plot
   output$ndvi_plot <- renderPlotly({
-    req(input$ndvi_source, input$ndvi_year, input$ndvi_county_selector)
+    req(input$ndvi_source, input$ndvi_county_selector)
     
-    df <- if (input$ndvi_source == "Top 10 Counties") ndvi_top10 else ndvi_recent_data
+    df <- if (input$ndvi_source == "Top 10 Counties") {
+      ndvi_top10
+    } else {
+      ndvi_recent_data
+    }
     
-    df %>%
-      filter(
-        year == input$ndvi_year,
-        county %in% input$ndvi_county_selector,
-        lubridate::month(date) %in% c(7:12, 1)  # July to January
-      ) %>%
-      ggplot(aes(x = date, y = NDVI_mean, color = county)) +
-      geom_line(size = 1) +
+    filtered_df <- df %>%
+      filter(county %in% input$ndvi_county_selector)
+    
+    validate(
+      need(nrow(filtered_df) > 0, "No NDVI data found for the selected county.")
+    )
+    
+    p <- ggplot(filtered_df, aes(x = date, y = mean_NDVI, color = county)) +
+      geom_point(size = 2) +  # scatter plot
       labs(
-        title = paste("NDVI (July–January) -", input$ndvi_source),
+        title = paste("NDVI Trends -", input$ndvi_source),
         x = "Date", y = "NDVI"
       ) +
-      theme_minimal() -> p
+      theme_minimal()
     
     ggplotly(p)
   })
+  
+  
   
   
   # Temperature Plot
@@ -451,6 +459,7 @@ server <- function(input, output, session) {
     
     ggplotly(p)
   })
+  
   
   
 }
