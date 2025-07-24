@@ -84,8 +84,6 @@ ui <- fluidPage(
     tabPanel("Objective",
              div(
                style = "position: relative; min-height: 100vh; padding: 20px; overflow: hidden;",
-               
-               # 🌽 Background video
                tags$video(
                  autoplay = NA, muted = NA, loop = NA, playsinline = NA,
                  style = "
@@ -101,8 +99,7 @@ ui <- fluidPage(
         type = "video/mp4"
       )
                ),
-      
-      # 🌽 Mission Statement Card
+    
       absolutePanel(
         draggable = TRUE,
         top = "60px", left = "2%", width = 360,
@@ -115,7 +112,6 @@ ui <- fluidPage(
       ),
       
       
-      # 📘 Instructions Card
       absolutePanel(
         draggable = TRUE,
         top = "60px", left = "35%", width = 360,
@@ -127,8 +123,6 @@ ui <- fluidPage(
         p("📅 Dashboard updates align with USDA NASS weekly releases to ensure timely and accurate information for decision-making.")
       ),
       
-      
-      # 🧭 Dashboard Tab Overview Card
       absolutePanel(
         draggable = TRUE,
         top = "60px", left = "68%", width = 360,
@@ -186,38 +180,42 @@ ui <- fluidPage(
     ),
     
   
-    tabPanel("Remote Sensing",
-             h4("About This Data"),
-             p("This section presents weekly vegetation health and temperature data over Virginia corn fields from 2021 through 2024."),
+    tabPanel("Remote Sensing",              
+             h4("About This Data"),              
+             p("This section presents weekly vegetation health (NDVI) and MODIS Land Surface Temperature (LST) data over Virginia corn fields from 2021 through 2025."),                            
              
-             h4("Understanding NDVI"),
-             p("NDVI (Normalized Difference Vegetation Index) is calculated using Landsat 8 imagery with the formula:"),
+             h4("Understanding NDVI"),              
+             p("NDVI (Normalized Difference Vegetation Index) is calculated using Landsat 8 imagery with the formula:"),              
              tags$ul(
-               tags$li("NDVI = (NIR - Red) / (NIR + Red)"),
-               tags$li("NIR = Near Infrared (Band 5), Red = Band 4"),
+               tags$li("NDVI = (NIR - Red) / (NIR + Red)"),                
+               tags$li("NIR = Near Infrared (Band 5), Red = Band 4"),                
                tags$li("NDVI values range from -1 to 1, where higher values indicate healthier vegetation.")
-             ),
-             p("The data was processed using Google Earth Engine, filtered using USDA Cropland Data Layers to isolate corn-growing areas, and aggregated at the county level."),
+             ),              
+             p("The NDVI data was processed using Google Earth Engine, filtered using USDA Cropland Data Layers to isolate corn-growing areas, and aggregated weekly at the county level."),                            
+             
+             h4("Understanding MODIS Temperature"),              
+             p("The temperature data comes from MODIS satellite-derived Land Surface Temperature (LST) products, which capture how hot the surface of the earth feels from space. We include weekly composites of day, night, and average temperatures for each county."),
+             p("This helps assess heat stress and environmental trends that may impact corn growth over time."),
              
              br(),
-             h4("Compare NDVI and MODIS Temperature Trends"),
+             h4("NDVI Trends (Full Year)"),
              
              sidebarLayout(
                sidebarPanel(
                  h5("NDVI Controls"),
-                 radioButtons("ndvi_source", "NDVI Dataset:",
-                              choices = c("Top 10 Counties", "Last 6 Months"),
-                              selected = "Last 6 Months"),
-                 selectInput("ndvi_year", "NDVI Year:", choices = 2021:2024, selected = 2024),
+                 radioButtons("ndvi_source", "NDVI View:",
+                              choices = c("Top 10 Counties", "All Counties"),
+                              selected = "All Counties"),
+                 selectInput("ndvi_year", "NDVI Year:", choices = 2021:2025, selected = 2025),
                  selectInput("ndvi_county_selector", "NDVI Counties:", choices = NULL, multiple = TRUE),
                  
                  br(), hr(),
                  
-                 h5("Temperature Controls"),
-                 radioButtons("temp_source", "Temperature Dataset:",
+                 h5("🌡️ Temperature Controls"),
+                 radioButtons("temp_source", "Temperature View:",
                               choices = c("Top 10 Counties", "Last 6 Months"),
                               selected = "Top 10 Counties"),
-                 selectInput("temp_year", "Temperature Year:", choices = 2021:2024, selected = 2024),
+                 selectInput("temp_year", "Temperature Year:", choices = 2021:2025, selected = 2025),
                  selectInput("temp_type", "Temperature Type:", choices = c("Average", "High", "Low"), selected = "Average"),
                  selectInput("temp_county_selector", "Temperature Counties:", choices = NULL, multiple = TRUE)
                ),
@@ -231,8 +229,7 @@ ui <- fluidPage(
              )
     ),
     
-    
-    
+  
     
 
     tabPanel("County Analysis",

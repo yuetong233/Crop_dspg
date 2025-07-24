@@ -208,15 +208,21 @@ get_avg_data <- function(year, category) {
 }
 
 #Remote Sensing Data
-# functions.R
-library(readr)
-library(dplyr)
-
-# Load NDVI data and standardize county column
 read_ndvi <- function(file) {
-  read_csv(file, show_col_types = FALSE) %>%
-    rename(county = county_name)
+  df <- read_csv(file, show_col_types = FALSE)
+  
+  # Try to figure out the correct column name for county
+  county_col <- names(df)[names(df) %in% c("NAME", "county_name", "county")][1]
+  
+  if (is.null(county_col)) {
+    stop(paste("No valid county column found in", file))
+  }
+  
+  df %>%
+    rename(county = all_of(county_col)) %>%
+    mutate(date = as.Date(date))
 }
+
 
 # Load Temperature data as-is (county column is already named 'county')
 read_temp <- function(file) {
@@ -225,16 +231,44 @@ read_temp <- function(file) {
 
 # Load all NDVI recent files
 ndvi_recent_all <- function() {
-  files <- list.files(pattern = "NDVI_Last6Months_.*\\.csv", full.names = TRUE)
-  lapply(files, read_ndvi) %>% bind_rows() %>%
-    mutate(date = as.Date(date), year = lubridate::year(date))
+  files <- list.files(pattern = "NDVI_SRbands_Weekly_\\d{4}\\.csv", full.names = TRUE)
+  
+  lapply(files, function(file) {
+    df <- read_ndvi(file)
+    df$date <- as.Date(df$date)
+    df$year <- lubridate::year(df$date)
+    df
+  }) %>% bind_rows()
 }
+
+
 
 # Load top 10 NDVI
 ndvi_top10_data <- function() {
   read_ndvi("Top10Counties_NDVI.csv") %>%
     mutate(date = as.Date(date), year = lubridate::year(date))
 }
+
+get_valid_ndvi_counties <- function(df, year) {
+  # Detect NDVI column
+  ndvi_col <- if ("NDVI_mean" %in% names(df)) "NDVI_mean" else "mean_NDVI"
+  
+  # Detect county column
+  county_col <- names(df)[names(df) %in% c("county", "NAME", "county_name")][1]
+  if (is.null(county_col)) stop("No county column found in NDVI data.")
+  
+  df %>%
+    filter(lubridate::year(date) == year,
+           lubridate::month(date) >= 5,
+           lubridate::month(date) <= 9,
+           !is.na(.data[[ndvi_col]])) %>%
+    distinct(.data[[county_col]]) %>%
+    pull()
+}
+
+
+
+
 
 # Load top 10 temperature
 temp_top10_all <- function() {
@@ -243,19 +277,23 @@ temp_top10_all <- function() {
       read_temp("Top10_TempAvg_2021.csv") %>% mutate(year = 2021),
       read_temp("Top10_TempAvg_2022.csv") %>% mutate(year = 2022),
       read_temp("Top10_TempAvg_2023.csv") %>% mutate(year = 2023),
-      read_temp("Top10_TempAvg_2024.csv") %>% mutate(year = 2024)
+      read_temp("Top10_TempAvg_2024.csv") %>% mutate(year = 2024),
+      read_temp("Top10_TempAvg_2025.csv") %>% mutate(year = 2025)
+      
     ),
     High = bind_rows(
       read_temp("Top10_TempHigh_2021.csv") %>% mutate(year = 2021),
       read_temp("Top10_TempHigh_2022.csv") %>% mutate(year = 2022),
       read_temp("Top10_TempHigh_2023.csv") %>% mutate(year = 2023),
-      read_temp("Top10_TempHigh_2024.csv") %>% mutate(year = 2024)
+      read_temp("Top10_TempHigh_2024.csv") %>% mutate(year = 2024),
+      read_temp("Top10_TempAvg_2025.csv") %>% mutate(year = 2025)
     ),
     Low = bind_rows(
       read_temp("Top10_TempLow_2021.csv") %>% mutate(year = 2021),
       read_temp("Top10_TempLow_2022.csv") %>% mutate(year = 2022),
       read_temp("Top10_TempLow_2023.csv") %>% mutate(year = 2023),
-      read_temp("Top10_TempLow_2024.csv") %>% mutate(year = 2024)
+      read_temp("Top10_TempLow_2024.csv") %>% mutate(year = 2024),
+      read_temp("Top10_TempAvg_2025.csv") %>% mutate(year = 2025)
     )
   )
 }
@@ -266,21 +304,28 @@ temp_recent_all <- function() {
       read_temp("Filtered_MODIS_Temp_2021.csv") %>% mutate(year = 2021),
       read_temp("Filtered_MODIS_Temp_2022.csv") %>% mutate(year = 2022),
       read_temp("Filtered_MODIS_Temp_2023.csv") %>% mutate(year = 2023),
-      read_temp("Filtered_MODIS_Temp_2024.csv") %>% mutate(year = 2024)
+      read_temp("Filtered_MODIS_Temp_2024.csv") %>% mutate(year = 2024),
+      read_temp("Filtered_MODIS_Temp_2025.csv") %>% mutate(year = 2025)
     ),
     High = bind_rows(
       read_temp("Filtered_MODIS_Temp_2021.csv") %>% mutate(year = 2021),
       read_temp("Filtered_MODIS_Temp_2022.csv") %>% mutate(year = 2022),
       read_temp("Filtered_MODIS_Temp_2023.csv") %>% mutate(year = 2023),
-      read_temp("Filtered_MODIS_Temp_2024.csv") %>% mutate(year = 2024)
+      read_temp("Filtered_MODIS_Temp_2024.csv") %>% mutate(year = 2024),
+      read_temp("Filtered_MODIS_Temp_2025.csv") %>% mutate(year = 2025)
     ),
     Low = bind_rows(
       read_temp("Filtered_MODIS_Temp_2021.csv") %>% mutate(year = 2021),
       read_temp("Filtered_MODIS_Temp_2022.csv") %>% mutate(year = 2022),
       read_temp("Filtered_MODIS_Temp_2023.csv") %>% mutate(year = 2023),
-      read_temp("Filtered_MODIS_Temp_2024.csv") %>% mutate(year = 2024)
+      read_temp("Filtered_MODIS_Temp_2024.csv") %>% mutate(year = 2024),
+      read_temp("Filtered_MODIS_Temp_2025.csv") %>% mutate(year = 2025)
     )
   )
 }
+
+
+
+
 
 
