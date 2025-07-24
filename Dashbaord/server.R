@@ -159,6 +159,7 @@ server <- function(input, output, session) {
     }
   })
   
+  
   #Planting Progress 
   for (yr in years) {
     for (cat in categories) {
@@ -464,10 +465,63 @@ server <- function(input, output, session) {
     ggplotly(p)
   })
   
+  #county analysis
+  # --- County Acres Picker UI ---
+  output$county_picker_ui <- renderUI({
+    req(input$county_state, input$county_year)
+    
+    counties <- clean_data %>%
+      filter(
+        state_alpha == input$county_state,
+        Year == as.character(input$county_year)
+      ) %>%
+      pull(County) %>%
+      tools::toTitleCase() %>%
+      unique() %>%
+      sort()
+    
+    pickerInput(
+      inputId = "selected_counties",
+      label = "Select County (Max 2):",
+      choices = counties,
+      multiple = TRUE,
+      options = list(`max-options` = 2, `actions-box` = TRUE)
+    )
+  })
   
-  
-  
-  
-  
+  # --- County Acres Plot ---
+  output$county_acres_plot <- renderPlotly({
+    req(input$selected_counties, input$county_state, input$county_year)
+    
+    sel <- input$selected_counties
+    if (length(sel) == 0) {
+      return(plotly_empty() %>% layout(title = "Select up to 2 counties"))
+    }
+    
+    df <- clean_data %>%
+      filter(
+        state_alpha == input$county_state,
+        Year == as.character(input$county_year),
+        tools::toTitleCase(County) %in% sel
+      ) %>%
+      mutate(County = tools::toTitleCase(County)) %>%
+      pivot_longer(c(Planted, Harvested), names_to = "Type", values_to = "Acres")
+    
+    gg <- ggplot(df, aes(x = Type, y = Acres, fill = Type)) +
+      geom_bar(stat = "identity", position = "dodge") +
+      facet_wrap(~County, scales = "free_y") +
+      scale_fill_manual(values = c("Planted" = "#1b5e20", "Harvested" = "#a5d6a7")) +
+      labs(
+        title = paste("Acres Planted vs. Harvested (", input$county_year, ",", input$county_state, ")"),
+        x = "", y = "Acres"
+      ) +
+      theme_minimal(base_size = 14) +
+      theme(
+        plot.title = element_text(face = "bold", color = "#2e7d32"),
+        legend.position = "none"
+      )
+    
+    ggplotly(gg)
+  })
   
 }
