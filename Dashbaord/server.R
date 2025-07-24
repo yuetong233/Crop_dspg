@@ -278,103 +278,89 @@ server <- function(input, output, session) {
   
   # Render yield forecast plot
   output$yield_forecast <- renderPlotly({
-    # 1. Query weekly crop condition data for Corn in Virginia, 2025
-    corn_conditions <- nassqs(
-      list(
-        commodity_desc = "CORN",
-        statisticcat_desc = "CONDITION",
-        agg_level_desc = "STATE",
-        state_name = "VIRGINIA",
-        year = "2025"
-      )
-    )
+    # 1. Query yield data for 2014-2024
+    yield_data <- nassqs(list(
+      source_desc = "SURVEY",
+      sector_desc = "CROPS",
+      group_desc = "FIELD CROPS",
+      commodity_desc = "CORN",
+      statisticcat_desc = "YIELD",
+      unit_desc = "BU / ACRE",
+      agg_level_desc = "STATE",
+      state_alpha = "VA",
+      year = 2014:2024
+    )) %>%
+      mutate(Year = as.integer(year),
+             Yield = as.numeric(Value)) %>%
+      select(Year, Yield)
     
-    # Debug: print structure and head of corn_conditions
-    print(head(corn_conditions))
-    str(corn_conditions)
+    # 2. Query crop condition data for 2014-2025
+    condition_data_raw <- nassqs(list(
+      source_desc = "SURVEY",
+      sector_desc = "CROPS",
+      group_desc = "FIELD CROPS",
+      commodity_desc = "CORN",
+      statisticcat_desc = "CONDITION",
+      agg_level_desc = "STATE",
+      state_alpha = "VA",
+      year = 2014:2025
+    ))
     
-    # Add this check:
-    if (nrow(corn_conditions) == 0) {
-      return(plotly::plotly_empty(type = "scatter", mode = "lines") %>%
-               layout(title = list(text = "No crop condition data available for 2025")))
-    }
+    # 3. Filter for just GOOD and EXCELLENT descriptions, get last week per year
+    condition_data <- condition_data_raw %>%
+      filter(grepl("MEASURED IN PCT GOOD|MEASURED IN PCT EXCELLENT", short_desc, ignore.case = TRUE)) %>%
+      filter(!is.na(week_ending)) %>%
+      mutate(Week_Ending = as.Date(week_ending)) %>%
+      group_by(year, Week_Ending) %>%
+      summarise(GE = sum(as.numeric(Value), na.rm = TRUE), .groups = "drop") %>%
+      group_by(year) %>%
+      filter(Week_Ending == max(Week_Ending)) %>%
+      ungroup() %>%
+      rename(Year = year)
     
-    # 2. Clean and reshape the data
-    weekly_conditions <- corn_conditions %>%
-      select(week_ending, short_desc, Value) %>%
-      mutate(
-        Week = as.Date(week_ending),
-        Condition = dplyr::case_when(
-          stringr::str_detect(short_desc, "EXCELLENT") ~ "Excellent",
-          stringr::str_detect(short_desc, "GOOD") ~ "Good",
-          stringr::str_detect(short_desc, "FAIR") ~ "Fair",
-          stringr::str_detect(short_desc, "POOR") & !stringr::str_detect(short_desc, "VERY") ~ "Poor",
-          TRUE ~ NA_character_
-        ),
-        Value = as.numeric(Value)
-      ) %>%
-      filter(!is.na(Condition)) %>%
-      group_by(Week, Condition) %>%
-      summarise(Value = mean(Value, na.rm = TRUE), .groups = "drop") %>%
-      tidyr::pivot_wider(names_from = Condition, values_from = Value) %>%
-      arrange(Week)
+    condition_data <- condition_data %>% mutate(Year = as.integer(Year))
     
-    # Check for all NA in Week
-    if (all(is.na(weekly_conditions$Week))) {
-      return(plotly::plotly_empty(type = "scatter", mode = "lines") %>%
-               layout(title = list(text = "No valid week-ending dates in crop condition data")))
-    }
+    # 4. Merge yield and G+E data
+    merged_data <- yield_data %>%
+      inner_join(condition_data, by = "Year") %>%
+      arrange(Year)
     
-    # Ensure all expected columns exist
-    for (col in c("Poor", "Fair", "Good", "Excellent")) {
-      if (!col %in% names(weekly_conditions)) {
-        weekly_conditions[[col]] <- 0
-      }
-    }
+    # 5. Fit trend line: Yield ~ (Year - 2013)
+    merged_data <- merged_data %>% mutate(Year_Index = Year - 2013)
+    trend_model <- lm(Yield ~ Year_Index, data = merged_data)
+    merged_data$Trend_Yield <- predict(trend_model, newdata = merged_data)
+    merged_data <- merged_data %>% mutate(Deviation_Pct = ((Yield - Trend_Yield) / Trend_Yield))
     
-    # Replace NA with 0 for condition columns
-    weekly_conditions <- weekly_conditions %>%
-      mutate(
-        Poor = ifelse(is.na(Poor), 0, Poor),
-        Fair = ifelse(is.na(Fair), 0, Fair),
-        Good = ifelse(is.na(Good), 0, Good),
-        Excellent = ifelse(is.na(Excellent), 0, Excellent)
-      )
+    # 6. Fit regression model: Deviation_Pct ~ GE
+    regression_model <- lm(Deviation_Pct ~ GE, data = merged_data)
     
-    # 3. Regression coefficients and trend yield
-    intercept <- -0.304165831
-    coef_poor <- -0.000678391
-    coef_fair <- 0.000165538
-    coef_good <- 0.003902026
-    coef_excellent <- 0.007679806
-    trend_yield_2025 <- 146.0
+    # 7. Get weekly Good+Excellent for 2025
+    weekly_2025 <- condition_data_raw %>%
+      filter(grepl("MEASURED IN PCT GOOD|MEASURED IN PCT EXCELLENT", short_desc, ignore.case = TRUE)) %>%
+      filter(!is.na(week_ending) & year == 2025) %>%
+      mutate(Week_Ending = as.Date(week_ending)) %>%
+      group_by(Week_Ending) %>%
+      summarise(GE = sum(as.numeric(Value), na.rm = TRUE), .groups = "drop") %>%
+      arrange(Week_Ending)
     
-    # 4. Forecast weekly yield
-    forecast_df <- weekly_conditions %>%
-      mutate(
-        ForecastDeviation = intercept +
-          coef_poor * Poor +
-          coef_fair * Fair +
-          coef_good * Good +
-          coef_excellent * Excellent,
-        ForecastYield = (1 + ForecastDeviation) * trend_yield_2025
-      )
+    # 8. Predict % deviation for each week using regression
+    weekly_2025$Deviation_Pct <- predict(regression_model, newdata = weekly_2025)
     
-    # Filter out rows with NA in Week or ForecastYield
-    forecast_df <- forecast_df %>%
-      filter(!is.na(Week), !is.na(ForecastYield))
+    # 9. Get 2024 trend yield to use as base
+    trend_yield_2024 <- predict(trend_model, newdata = data.frame(Year_Index = 2024 - 2013))
     
-    # 5. Plot with Plotly
-    p <- ggplot(forecast_df, aes(x = Week, y = ForecastYield)) +
-      geom_line(color = "forestgreen", size = 1.5) +
-      geom_point(color = "darkgreen") +
-      geom_hline(yintercept = trend_yield_2025, linetype = "dashed", color = "gray30") +
-      labs(
-        title = "Weekly Forecasted Corn Yield (Virginia, 2025)",
-        subtitle = "Based on USDA Crop Conditions & Regression Model",
-        x = "Week Ending",
-        y = "Forecasted Yield (bu/acre)"
-      ) +
+    # 10. Compute forecasted yield for each 2025 week
+    weekly_2025$Forecasted_Yield <- (1 + weekly_2025$Deviation_Pct / 100) * trend_yield_2024
+    
+    # 11. Plot with ggplotly
+    p <- ggplot(weekly_2025, aes(x = Week_Ending, y = Forecasted_Yield)) +
+      geom_line(color = "darkgreen", size = 1.5) +
+      geom_point(color = "darkgreen", size = 2) +
+      geom_hline(yintercept = trend_yield_2024, linetype = "dashed", color = "gray30") +
+      labs(title = "Weekly Forecasted Corn Yield (Virginia, 2025)",
+           subtitle = "Based on Good+Excellent Regression Model",
+           x = "Week Ending",
+           y = "Forecasted Yield (bu/acre)") +
       theme_minimal(base_size = 14)
     
     plotly::ggplotly(p)
