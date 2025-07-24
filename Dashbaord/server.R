@@ -390,14 +390,18 @@ server <- function(input, output, session) {
   
   # Update county choices
   observe({
-    req(input$ndvi_source)
+    req(input$ndvi_source, input$ndvi_year)
+    
     counties <- if (input$ndvi_source == "Top 10 Counties") {
-      unique(ndvi_top10$county)
+      get_valid_ndvi_counties(ndvi_top10, input$ndvi_year)
     } else {
-      unique(ndvi_recent_data$county)
+      get_valid_ndvi_counties(ndvi_recent_data, input$ndvi_year)
     }
+    
     updateSelectInput(session, "ndvi_county_selector", choices = counties)
   })
+  
+  
   
   observe({
     req(input$temp_source)

@@ -249,6 +249,27 @@ ndvi_top10_data <- function() {
     mutate(date = as.Date(date), year = lubridate::year(date))
 }
 
+get_valid_ndvi_counties <- function(df, year) {
+  # Detect NDVI column
+  ndvi_col <- if ("NDVI_mean" %in% names(df)) "NDVI_mean" else "mean_NDVI"
+  
+  # Detect county column
+  county_col <- names(df)[names(df) %in% c("county", "NAME", "county_name")][1]
+  if (is.null(county_col)) stop("No county column found in NDVI data.")
+  
+  df %>%
+    filter(lubridate::year(date) == year,
+           lubridate::month(date) >= 5,
+           lubridate::month(date) <= 9,
+           !is.na(.data[[ndvi_col]])) %>%
+    distinct(.data[[county_col]]) %>%
+    pull()
+}
+
+
+
+
+
 # Load top 10 temperature
 temp_top10_all <- function() {
   list(
