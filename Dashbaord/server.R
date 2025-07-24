@@ -443,6 +443,43 @@ server <- function(input, output, session) {
     ggplotly(p)
   })
   
+  output$temp_plot <- renderPlotly({
+    req(input$temp_source, input$temp_county_selector, input$temp_year, input$temp_type)
+    
+    df <- if (input$temp_source == "Top 10 Counties") {
+      temp_top10[[input$temp_type]]
+    } else {
+      temp_recent[[input$temp_type]]
+    }
+    
+    filtered_df <- df %>%
+      filter(county %in% input$temp_county_selector) %>%
+      filter(year == input$temp_year) %>%
+      filter(lubridate::month(date) >= 5 & lubridate::month(date) <= 9)
+    
+    validate(
+      need(nrow(filtered_df) > 0, "No temperature data found for the selected county and year.")
+    )
+    
+    y_col <- case_when(
+      input$temp_type == "Average" ~ "T_avg",
+      input$temp_type == "High" ~ "T_day",
+      input$temp_type == "Low" ~ "T_night"
+    )
+    
+    p <- ggplot(filtered_df, aes(x = date, y = .data[[y_col]], color = county)) +
+      geom_line(size = 1) +
+      labs(
+        title = paste(input$temp_type, "Temperature (May–Sept)", input$temp_year),
+        x = "Date", y = "Temperature (°C)"
+      ) +
+      theme_minimal()
+    
+    ggplotly(p)
+  })
+  
+  
+  
   
   
   
