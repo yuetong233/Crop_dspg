@@ -277,7 +277,7 @@ ui <- fluidPage(
    
    tabPanel("Yield Forecast",
             h4("About This Feature"),
-            p("This section provides a weekly forecast of corn yield for Virginia based on current crop conditions. The forecast uses a regression model that incorporates the distribution of crop conditions (Excellent, Good, Fair, Poor) to predict yield deviation from trend."),
+            p("This section provides a weekly forecast of corn yield for Virginia based on current crop conditions. The forecast uses a regression model that incorporates the distribution of crop conditions (Excellent and Good) to predict yield deviation from trend."),
             p("The model assumes that better crop conditions (higher percentages of Excellent and Good ratings) will result in yields above trend, while poorer conditions will result in yields below trend."),
             br(),
             fluidRow(
