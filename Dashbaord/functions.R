@@ -322,6 +322,62 @@ temp_recent_all <- function() {
       read_temp("Filtered_MODIS_Temp_2025.csv") %>% mutate(year = 2025)
     )
   )
+
+  get_weekly_county_acre_trends <- function(state, year) {
+    planted <- tryCatch({
+      nassqs(list(
+        commodity_desc = "CORN",
+        statisticcat_desc = "AREA PLANTED",
+        unit_desc = "ACRES",
+        agg_level_desc = "COUNTY",
+        source_desc = "SURVEY",
+        year = as.character(year),
+        state_alpha = state
+      )) %>%
+        mutate(
+          Date = as.Date(week_ending),
+          County = tolower(county_name),
+          County = gsub(" county", "", County),
+          County = trimws(County),
+          Type = "Planted",
+          Value = as.numeric(Value),
+          State = state,
+          Month = lubridate::month(Date, label = TRUE)
+        ) %>%
+        filter(!is.na(Date))
+    }, error = function(e) NULL)
+    
+    harvested <- tryCatch({
+      nassqs(list(
+        commodity_desc = "CORN",
+        statisticcat_desc = "AREA HARVESTED",
+        unit_desc = "ACRES",
+        agg_level_desc = "COUNTY",
+        source_desc = "SURVEY",
+        year = as.character(year),
+        state_alpha = state
+      )) %>%
+        mutate(
+          Date = as.Date(week_ending),
+          County = tolower(county_name),
+          County = gsub(" county", "", County),
+          County = trimws(County),
+          Type = "Harvested",
+          Value = as.numeric(Value),
+          State = state,
+          Month = lubridate::month(Date, label = TRUE)
+        ) %>%
+        filter(!is.na(Date))
+    }, error = function(e) NULL)
+    
+    if (is.null(planted) && is.null(harvested)) return(NULL)
+    
+    bind_rows(planted, harvested) %>%
+      filter(!is.na(Value))
+  }
+  
+  
+  
 }
 
 
