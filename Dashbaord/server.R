@@ -524,4 +524,99 @@ server <- function(input, output, session) {
     ggplotly(gg)
   })
   
+  output$yield_comparison <- renderPlotly({
+    # Read and process data as in Code.R
+    library(dplyr)
+    library(tidyr)
+    library(readr)
+    
+    week_condition <- read.csv("../VA_weekly_condition.csv", fill = TRUE)
+    yield <- read.csv("../VA_yield.csv", fill = TRUE)
+    vis <- read.csv("../VA_multi.csv", fill = TRUE)
+    
+    wc_clean <- week_condition[, colSums(is.na(week_condition)) == 0]
+    yield_clean <- yield[, colSums(is.na(yield)) == 0]
+    
+    filtered_yield <- yield_clean %>%
+      filter(Period == "YEAR") %>%
+      filter(Year >= 1984 & Year <= 2024)
+    
+    condition_summary <- wc_clean %>%
+      select(Year, Period, Data.Item, Value) %>%
+      mutate(
+        Condition = toupper(sub(".*IN PCT\\s+", "", Data.Item)),
+        Week = as.numeric(gsub("WEEK #", "", Period)),
+        Value = as.numeric(Value)
+      )
+    
+    yearly_summary <- condition_summary %>%
+      group_by(Year, Condition) %>%
+      filter(Week == max(Week, na.rm = TRUE)) %>%
+      slice_tail(n = 1) %>%
+      ungroup() %>%
+      select(Year, Condition, Value) %>%
+      pivot_wider(names_from = Condition, values_from = Value)
+    
+    yearly_summary$`G+E` <- yearly_summary$GOOD + yearly_summary$EXCELLENT
+    
+    years <- 1984:2025
+    filtered_yield$year_order <- filtered_yield$Year - 1983
+    model <- lm(Value ~ year_order, data = filtered_yield)
+    alpha <- coef(model)[1]
+    beta <- coef(model)[2]
+    filtered_yield$trend_predicted <- alpha + beta * filtered_yield$year_order
+    
+    vis_wide <- vis %>%
+      pivot_wider(
+        id_cols = c(satellite, year),
+        names_from = month_name,
+        values_from = c(peak_NDVI, peak_GOSAVI, peak_GDVI, peak_EVI, peak_CVI),
+        names_glue = "{.value}_{month_name}"
+      ) %>%
+      mutate(
+        mNDVI_678   = rowMeans(across(c(peak_NDVI_Jun, peak_NDVI_Jul, peak_NDVI_Aug)), na.rm = TRUE),
+        mGOSAVI_678 = rowMeans(across(c(peak_GOSAVI_Jun, peak_GOSAVI_Jul, peak_GOSAVI_Aug)), na.rm = TRUE),
+        mGDVI_678   = rowMeans(across(c(peak_GDVI_Jun, peak_GDVI_Jul, peak_GDVI_Aug)), na.rm = TRUE),
+        mEVI_678    = rowMeans(across(c(peak_EVI_Jun, peak_EVI_Jul, peak_EVI_Aug)), na.rm = TRUE),
+        mCVI_678    = rowMeans(across(c(peak_CVI_Jun, peak_CVI_Jul, peak_CVI_Aug)), na.rm = TRUE)
+      ) %>%
+      filter(
+        satellite != "Landsat4_TM",
+        satellite != "Landsat9_OLI2",
+        !(satellite == "Landsat7_ETM" & year != 2012)
+      )
+    
+    merged_data <- filtered_yield %>%
+      left_join(vis_wide, by = c("Year" = "year"))
+    
+    model_EVI <- lm(Value ~ year_order + mEVI_678, data = merged_data)
+    merged_data$pred_yield_EVI <- predict(model_EVI, newdata = merged_data)
+    
+    filtered_subset <- merged_data[merged_data$Year >= 2014 & merged_data$Year <= 2025, ]
+    filtered_subset <- merge(filtered_subset, yearly_summary[, c("Year", "G+E")],
+                             by = "Year", all.x = TRUE)
+    model_GE <- lm(Value ~ `G+E`, data = filtered_subset)
+    filtered_subset$pred_yield_GE <- predict(model_GE, newdata = filtered_subset)
+    
+    plot_data <- filtered_subset[filtered_subset$Year >= 2014 & filtered_subset$Year <= 2024, ]
+    plot_data$pred_yield_EVI <- merged_data$pred_yield_EVI[match(plot_data$Year, merged_data$Year)]
+    
+    fig <- plot_ly(plot_data, x = ~Year)
+    fig <- fig %>%
+      add_trace(y = ~Value, name = "Actual Yield", type = 'scatter', mode = 'lines+markers',
+                line = list(dash = 'solid', width = 2), marker = list(size = 7))
+    fig <- fig %>%
+      add_trace(y = ~pred_yield_GE, name = "Predicted Yield (G+E)", type = 'scatter', mode = 'lines+markers',
+                line = list(dash = 'dot', width = 2), marker = list(size = 7))
+    fig <- fig %>%
+      add_trace(y = ~pred_yield_EVI, name = "Predicted Yield (EVI)", type = 'scatter', mode = 'lines+markers',
+                line = list(dash = 'dot', width = 2), marker = list(size = 7))
+    fig <- fig %>%
+      layout(title = "Actual vs Predicted Yield (G+E and EVI Models), 2014–2024",
+             yaxis = list(title = "Yield"),
+             xaxis = list(title = "Year"),
+             legend = list(title = list(text = "Legend")))
+    fig
+  })
+  
 }
