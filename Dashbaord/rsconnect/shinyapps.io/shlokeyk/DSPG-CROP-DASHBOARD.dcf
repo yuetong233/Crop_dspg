@@ -1,0 +1,12 @@
+name: DSPG-CROP-DASHBOARD
+title: DSPG-CROP-DASHBOARD
+username: shlokeyk
+account: shlokeyk
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15132101
+bundleId: 10687211
+url: https://shlokeyk.shinyapps.io/DSPG-CROP-DASHBOARD/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
