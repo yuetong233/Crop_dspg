@@ -266,32 +266,30 @@ ui <- fluidPage(
     ),
     
     tabPanel("Yield Analysis",
-             h4("About This Data"),
-             p("This dashboard presents an analysis of corn crop yield across Virginia, North Carolina, and Maryland from 2015 to 2023. \
-   The data is sourced from the USDA's National Agricultural Statistics Service (NASS) API and includes county-level statistics on corn yield (bushels per acre). \
-   Interactive graphics allow users to explore average yields over time, moving averages, and year-over-year changes."),
-             
+             h4("Historical Corn Yield Analysis"),
              fluidRow(
-               column(4,
+               column(6,
                       pickerInput("yield_states", "Select States:",
                                   choices = c("Virginia" = "VA", "North Carolina" = "NC", "Maryland" = "MD"),
                                   selected = c("VA", "NC", "MD"), multiple = TRUE,
-                                  options = list(`actions-box` = TRUE))
+                                  options = list(`actions-box` = TRUE)
+                      )
                ),
-               column(4,
-                      sliderInput("yoy_year_slider", "Select Year:",
-                                  min = 2015, max = 2023, value = 2023, step = 1, sep = "")
+               column(3,
+                      selectInput("county_map_state", "Select State for County Map:",
+                                  choices = c("Virginia" = "VA", "North Carolina" = "NC", "Maryland" = "MD"),
+                                  selected = "VA"
+                      )
                ),
-               column(4,
-                      numericInput("ma_window", "Moving Average Window:", value = 5, min = 2, max = 10)
+               column(3,
+                      uiOutput("county_map_year_ui")
                )
              ),
-             
              h4("Yield Trends Over Time"),
-             plotlyOutput("yield_plot"),
+             plotlyOutput("yield_state_plot"),
+             h4("County Yield Choropleth Map"),
+             leafletOutput("yield_county_map", height = "600px")
              
-             h4("Summary Statistics"),
-             div(style = "margin-bottom:-30px;", plotlyOutput("summary_card"))
     ),
     
     tabPanel("Yield Forecast",

@@ -523,6 +523,146 @@ server <- function(input, output, session) {
     
     ggplotly(gg)
   })
+  # --- Yield Analysis Data Preparation (run once at startup) ---
+  states <- c("VA", "MD", "NC")
+  get_available_years <- function(state) {
+    years <- nassqs_param_values("year", list(
+      commodity_desc = "CORN",
+      state_alpha = state,
+      statisticcat_desc = "YIELD",
+      agg_level_desc = "STATE"
+    ))
+    as.integer(years)
+  }
+  years_list <- lapply(states, get_available_years)
+  names(years_list) <- states
+  get_state_yield <- function(state) {
+    years <- years_list[[state]]
+    nassqs(list(
+      source_desc = "SURVEY",
+      sector_desc = "CROPS",
+      group_desc = "FIELD CROPS",
+      commodity_desc = "CORN",
+      statisticcat_desc = "YIELD",
+      unit_desc = "BU / ACRE",
+      agg_level_desc = "STATE",
+      state_alpha = state,
+      year = years
+    )) %>%
+      mutate(
+        State = state,
+        Year = as.integer(year),
+        Yield = as.numeric(Value)
+      ) %>%
+      select(State, Year, Yield)
+  }
+  get_county_yield <- function(state) {
+    years <- years_list[[state]]
+    nassqs(list(
+      source_desc = "SURVEY",
+      sector_desc = "CROPS",
+      group_desc = "FIELD CROPS",
+      commodity_desc = "CORN",
+      statisticcat_desc = "YIELD",
+      unit_desc = "BU / ACRE",
+      agg_level_desc = "COUNTY",
+      state_alpha = state,
+      year = years
+    )) %>%
+      mutate(
+        State = state,
+        Year = as.integer(year),
+        County = county_name,
+        Yield = as.numeric(Value)
+      ) %>%
+      select(State, County, Year, Yield)
+  }
+  yield_state_all <- bind_rows(lapply(states, get_state_yield))
+  yield_county_all <- bind_rows(lapply(states, get_county_yield))
+  all_counties <- bind_rows(lapply(states, function(st) {
+    counties(state = st, cb = TRUE, year = 2023) %>%
+      st_transform(4326) %>%
+      mutate(
+        County = tolower(NAME),
+        County = gsub(" county", "", County),
+        County = trimws(County),
+        State = st
+      )
+  }))
+  
+  
+  # --- Yield Analysis Outputs ---
+  output$county_map_year_ui <- renderUI({
+    req(input$county_map_state)
+    available_years <- sort(unique(yield_county_all$Year[yield_county_all$State == input$county_map_state]), decreasing = TRUE)
+    selectInput("county_map_year", "Select Year for County Map:", choices = available_years, selected = max(available_years))
+  })
+  
+  
+  output$yield_state_plot <- renderPlotly({
+    req(input$yield_states)
+    plot_state <- yield_state_all %>% filter(State %in% input$yield_states)
+    plot_ly(plot_state, x = ~Year, y = ~Yield, color = ~State, type = 'scatter', mode = 'lines+markers') %>%
+      layout(
+        title = 'Corn Yield by State (All Available Years)',
+        xaxis = list(title = 'Year'),
+        yaxis = list(title = 'Yield (bushels/acre)'),
+        legend = list(title = list(text = 'State'))
+      )
+  })
+  
+  
+  output$yield_county_map <- renderLeaflet({
+    req(input$county_map_state, input$county_map_year)
+    yield_map_data <- yield_county_all %>%
+      filter(State == input$county_map_state, Year == input$county_map_year) %>%
+      mutate(
+        County = tolower(County),
+        County = gsub(" county", "", County),
+        County = trimws(County)
+      )
+    map_data <- left_join(
+      all_counties %>% filter(State == input$county_map_state),
+      yield_map_data,
+      by = c("County", "State")
+    ) %>% st_as_sf()
+    pal <- colorBin("YlGnBu", domain = map_data$Yield, bins = 5, na.color = "#f0f0f0")
+    leaflet(map_data) %>%
+      addProviderTiles("CartoDB.Positron") %>%
+      addPolygons(
+        fillColor = ~pal(Yield),
+        color = "black",
+        weight = 1,
+        fillOpacity = 0.7,
+        label = ~paste0(
+          "<strong>", toupper(County), "</strong><br>",
+          "Yield: ", ifelse(is.na(Yield), "N/A", round(Yield, 1)), " bu/acre"
+        ) %>% lapply(htmltools::HTML),
+        highlightOptions = highlightOptions(
+          weight = 3,
+          color = "#666",
+          fillOpacity = 0.9,
+          bringToFront = TRUE
+        )
+      ) %>%
+      addLegend("bottomright", pal = pal, values = map_data$Yield, title = "Yield (bu/acre)", opacity = 1)
+  })
+  
+  
+
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   output$yield_comparison <- renderPlotly({
     # Read and process data as in Code.R
