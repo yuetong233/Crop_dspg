@@ -338,6 +338,7 @@ ui <- fluidPage(
                  # Yield Analysis
                  tags$tr(tags$td("Yield Analysis"), tags$td("Value (Yield), year, State"), tags$td("USDA NASS API → CSV"), tags$td("Annually"), tags$td("State"), tags$td("Static CSV")),
                  tags$tr(tags$td("Yield Forecast"), tags$td("PCT POOR, FAIR, GOOD, EXCELLENT"), tags$td("USDA NASS API"), tags$td("Weekly during season"), tags$td("State"), tags$td("Live API")),
+                 tags$tr(tags$td("Yield Forecast Comparison"), tags$td("Yield (Value, Year), G+E (GOOD + EXCELLENT), mEVI_678"), tags$td("USDA NASS API, Google Earth Engine (Landsat) → CSV"), tags$td("Annually (Yield), Weekly during season (G+E), May–Sept (manual export, EVI)"), tags$td("State"), tags$td("Static CSV")),
                  
                  # County Analysis
                  tags$tr(tags$td("County Analysis"), tags$td("Planted, Harvested, County, Year"), tags$td("USDA NASS API → CSV"), tags$td("Annually"), tags$td("County"), tags$td("Static CSV")),
@@ -352,6 +353,8 @@ ui <- fluidPage(
                  # Temperature (Remote Sensing)
                  tags$tr(tags$td("Temperature (All Counties)"), tags$td("T_day, T_night, T_avg, county, date"), tags$td("MODIS (NASA) → CSV"), tags$td("Weekly (manual export)"), tags$td("County"), tags$td("Static CSV")),
                  tags$tr(tags$td("Temperature (Top 10 Counties)"), tags$td("T_day, T_night, T_avg, county, date"), tags$td("MODIS (NASA) → CSV"), tags$td("May–Sept (manual export)"), tags$td("County"), tags$td("Static CSV"))
+                 
+                 
                )
              )
     ),
