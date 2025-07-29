@@ -10,6 +10,7 @@ library(lubridate)
 week_condition <- read.csv("VA_weekly_condition.csv", fill = TRUE)
 yield <- read.csv("VA_yield.csv", fill = TRUE)
 vis <- read.csv("VA_multi.csv", fill = TRUE)
+vi25 <- read.csv("2025_VI.csv", fill = TRUE)
 
 wc_clean <- week_condition[, colSums(is.na(week_condition)) == 0]
 yield_clean <- yield[, colSums(is.na(yield)) == 0]
@@ -17,8 +18,12 @@ yield_clean <- yield[, colSums(is.na(yield)) == 0]
 filtered_yield <- yield_clean %>%
   filter(Period == "YEAR")
 
-filtered_yield <- filtered_yield %>%
-  filter(Year >= 1984 & Year <= 2024)
+# Create full sequence of years
+year_range <- data.frame(Year = 1984:2025)
+
+# Ensure all years are retained
+filtered_yield <- year_range %>%
+  left_join(filtered_yield, by = "Year")
 
 # Yearly Condition (Last Week) and Yield ----------------------------------
 
@@ -48,10 +53,10 @@ yearly_summary <- yearly_summary %>%
   left_join(filtered_yield %>% select(Year, Yield = Value), by = "Year")
 
 ############################# 
-# 1984-2024 Period
+# 1984-2025 Period
 ############################# 
 
-# Percentage Deviation (1984-2024)--------------------------------------------
+# Percentage Deviation (1984-2025)--------------------------------------------
 
 years <- 1984:2025
 filtered_yield$year_order <- filtered_yield$Year - 1983
@@ -68,9 +73,11 @@ filtered_yield$trend_predicted <- alpha + beta * filtered_yield$year_order
 filtered_yield$deviation <- (filtered_yield$Value-filtered_yield$trend_predicted)/filtered_yield$trend_predicted
 filtered_yield$`Deviation %` <- (filtered_yield$Value-filtered_yield$trend_predicted)/filtered_yield$trend_predicted * 100
 
-# Merge NDVI on Yearly Yield (1985-2024)----------------------------------
+# Merge NDVI on Yearly Yield (1985-2025)----------------------------------
+vis <- vis[, !names(vis) %in% "has_blue_band"]
+combined_vi <- rbind(vis, vi25)
 
-vis_wide <- vis %>%
+vis_wide <- combined_vi %>%
   pivot_wider(
     id_cols = c(satellite, year),  # keep one row per year (and satellite, if needed)
     names_from = month_name,
@@ -105,9 +112,9 @@ summary(model_EVI)
 merged_data$pred_yield_EVI <- predict(model_EVI, newdata = merged_data)
 
 ############################# 
-# 2014-2024 Period Using "G+E"
+# 2014-2025 Period Using "G+E"
 ############################# 
-# Percentage Deviation (2014-2024)----------------------------------------------------
+# Percentage Deviation (2014-2025)----------------------------------------------------
 
 filtered_subset <- merged_data[merged_data$Year >= 2014 & merged_data$Year <= 2025, ]
 filtered_subset <- merge(filtered_subset, yearly_summary[, c("Year", "G+E")],
@@ -122,3 +129,38 @@ filtered_subset$pred_yield_GE <- predict(model_GE, newdata = filtered_subset)
 # Percent deviation from the trend
 filtered_subset$deviation <- (filtered_subset$Value-filtered_subset$trend_predicted)/filtered_subset$trend_predicted
 filtered_subset$`Deviation %` <- (filtered_subset$Value-filtered_subset$trend_predicted)/filtered_subset$trend_predicted * 100
+
+library(plotly)
+
+plot_ly() %>%
+  # Actual Yield (1984–2025)
+  add_lines(data = merged_data, x = ~Year, y = ~Value, name = "Actual Yield",
+            line = list(color = 'black', width = 2)) %>%
+  add_markers(data = merged_data, x = ~Year, y = ~Value, name = "Actual Points",
+              marker = list(color = 'black', size = 6)) %>%
+  
+  # Trend Yield Line
+  add_lines(data = merged_data, x = ~Year, y = ~trend_predicted, name = "Trend Yield",
+            line = list(color = 'blue', dash = 'dash', width = 2)) %>%
+  
+  # EVI Forecast (1984–2025)
+  add_lines(data = merged_data, x = ~Year, y = ~pred_yield_EVI, name = "Forecast (EVI)",
+            line = list(color = 'green', dash = 'dot', width = 2)) %>%
+  add_markers(data = merged_data, x = ~Year, y = ~pred_yield_EVI, name = "EVI Points",
+              marker = list(color = 'green', size = 6)) %>%
+  
+  # G+E Forecast (2014–2025 subset only)
+  add_lines(data = filtered_subset, x = ~Year, y = ~pred_yield_GE, name = "Forecast (G+E)",
+            line = list(color = 'orange', dash = 'dashdot', width = 2)) %>%
+  add_markers(data = filtered_subset, x = ~Year, y = ~pred_yield_GE, name = "G+E Points",
+              marker = list(color = 'orange', size = 6)) %>%
+  
+  # Layout
+  layout(
+    title = list(text = "Virginia Corn Yield Forecast (1984–2025)", x = 0),
+    xaxis = list(title = "Year", dtick = 2),
+    yaxis = list(title = "Yield (Bushels per Acre)"),
+    legend = list(x = 0.01, y = 0.99),
+    hovermode = "x unified"
+  )
+
