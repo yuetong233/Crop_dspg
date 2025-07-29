@@ -375,13 +375,54 @@ temp_recent_all <- function() {
     bind_rows(planted, harvested) %>%
       filter(!is.na(Value))
   }
-  
-  
-  
 }
-
-
-
-
-
-
+  
+  #2000-2025
+get_full_nass_data_for_county_analysis <- function() {
+  file_path <- "county_analysis_nass_data_2000_2025.csv"
+  
+  if (file.exists(file_path)) {
+    return(read_csv(file_path, show_col_types = FALSE) %>%
+             filter(Year >= 2000 & Year <= 2025))
+  }
+  
+  message("🌐 CSV missing — fetching from NASS API...")
+  
+  states <- c("VA", "NC", "MD")
+  stats <- c("AREA PLANTED", "AREA HARVESTED")
+  years <- 2000:2025
+  
+  raw_data <- bind_rows(lapply(states, function(st) {
+    bind_rows(lapply(years, function(yr) {
+      bind_rows(lapply(stats, function(sc) {
+        tryCatch({
+          df <- nassqs(list(
+            commodity_desc = "CORN",
+            statisticcat_desc = sc,
+            unit_desc = "ACRES",
+            agg_level_desc = "COUNTY",
+            source_desc = "SURVEY",
+            state_alpha = st,
+            year = as.character(yr)
+          ))
+          df$Year <- yr
+          df$stat_type <- sc
+          df$state_alpha <- st
+          return(df)
+        }, error = function(e) NULL)
+      }))
+    }))
+  }))
+  
+  formatted <- raw_data %>%
+    select(Year, county_name, state_alpha, stat_type, Value) %>%
+    mutate(Value = as.numeric(gsub(",", "", Value))) %>%
+    filter(!is.na(Value)) %>%
+    group_by(Year, county_name, state_alpha, stat_type) %>%
+    summarise(Value = mean(Value, na.rm = TRUE), .groups = "drop") %>%
+    pivot_wider(names_from = stat_type, values_from = Value) %>%
+    rename(Planted = `AREA PLANTED`, Harvested = `AREA HARVESTED`)
+  
+  write_csv(formatted, file_path)
+  return(formatted %>% filter(Year >= 2000 & Year <= 2025))
+}

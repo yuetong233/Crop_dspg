@@ -759,4 +759,140 @@ server <- function(input, output, session) {
     fig
   })
   
+  #County analysis
+  county_data_full <- get_full_nass_data_for_county_analysis()
+  
+  # Helper function to get unique counties for a given state
+  get_counties <- function(state) {
+    county_data_full %>%
+      filter(state_alpha == state) %>%
+      distinct(county_name) %>%
+      pull(county_name) %>%
+      unique() %>%
+      sort()
+  }
+  
+  # UI for County Selectors
+  output$county_planted_ui <- renderUI({
+    req(input$state_planted)
+    selectizeInput("county_planted", "Select County/Counties:",
+                   choices = get_counties(input$state_planted),
+                   multiple = TRUE,
+                   selected = get_counties(input$state_planted)[1:2])
+  })
+  
+  output$county_harvested_ui <- renderUI({
+    req(input$state_harvested)
+    selectizeInput("county_harvested", "Select County/Counties:",
+                   choices = get_counties(input$state_harvested),
+                   multiple = TRUE,
+                   selected = get_counties(input$state_harvested)[1:2])
+  })
+  
+  output$county_success_ui <- renderUI({
+    req(input$state_success)
+    selectizeInput("county_success", "Select County/Counties:",
+                   choices = get_counties(input$state_success),
+                   multiple = TRUE,
+                   selected = get_counties(input$state_success)[1:2])
+  })
+  
+  # --- Reactive Data ---
+  planted_data <- reactive({
+    req(input$state_planted, input$county_planted)
+    county_data_full %>%
+      filter(state_alpha == input$state_planted,
+             county_name %in% input$county_planted,
+             !is.na(Planted),
+             Year >= 2000 & Year <= 2025)
+  })
+  
+  harvested_data <- reactive({
+    req(input$state_harvested, input$county_harvested)
+    county_data_full %>%
+      filter(state_alpha == input$state_harvested,
+             county_name %in% input$county_harvested,
+             !is.na(Harvested),
+             Year >= 2000 & Year <= 2025)
+  })
+  
+  success_data <- reactive({
+    req(input$state_success, input$county_success)
+    county_data_full %>%
+      filter(state_alpha == input$state_success,
+             county_name %in% input$county_success,
+             !is.na(Planted), !is.na(Harvested),
+             Year >= 2000 & Year <= 2025) %>%
+      mutate(SuccessRate = round((Harvested / Planted) * 100, 1))
+  })
+  
+  # --- Plots ---
+  nature_colors <- c(
+    "#4CAF50",  # leafy green
+    "#8BC34A",  # grass green
+    "#A1887F",  # bark brown
+    "#689F38",  # olive green
+    "#FFB74D",  # sunlight orange
+    "#6D4C41",  # soil brown
+    "#43A047",  # forest green
+    "#C0CA33"   # corn yellow
+  )
+  
+  # --- Plots ---
+  output$plot_planted <- renderPlotly({
+    shiny::withProgress(message = "Loading plot...", value = 0.5, {
+      req(nrow(planted_data()) > 0)
+      gg <- ggplot(planted_data(), aes(x = as.numeric(Year), y = Planted, color = county_name)) +
+        geom_line(linewidth = 1.5) +
+        geom_point(size = 2.5) +
+        scale_color_manual(values = nature_colors) +
+        labs(title = paste("🌽 Planting Patterns in", input$state_planted),
+             x = "Year", y = "Acres Planted") +
+        theme_minimal(base_family = "serif") +
+        theme(
+          plot.title = element_text(color = "#2e7d32", face = "bold", size = 18),
+          panel.background = element_rect(fill = "#f1f8e9", color = NA),
+          plot.background = element_rect(fill = "#f9fbe7", color = NA)
+        )
+      ggplotly(gg)
+    })
+  })
+  
+  output$plot_harvested <- renderPlotly({
+    req(nrow(harvested_data()) > 0)
+    gg <- ggplot(harvested_data(), aes(x = as.numeric(Year), y = Harvested, color = county_name)) +
+      geom_line(linewidth = 1.5) +
+      geom_point(size = 2.5) +
+      scale_color_manual(values = nature_colors) +
+      labs(title = paste("🌾 Harvest Trends in", input$state_harvested),
+           x = "Year", y = "Acres Harvested") +
+      theme_minimal(base_family = "serif") +
+      theme(
+        plot.title = element_text(color = "#33691e", face = "bold", size = 18),
+        panel.background = element_rect(fill = "#f1f8e9", color = NA),
+        plot.background = element_rect(fill = "#f9fbe7", color = NA)
+      )
+    ggplotly(gg)
+  })
+  
+  output$plot_success <- renderPlotly({
+    req(nrow(success_data()) > 0)
+    gg <- ggplot(success_data(), aes(x = as.numeric(Year), y = SuccessRate, color = county_name)) +
+      geom_line(linewidth = 1.5) +
+      geom_point(size = 2.5) +
+      scale_color_manual(values = nature_colors) +
+      labs(title = paste("🍂 Harvest Success Rate in", input$state_success),
+           x = "Year", y = "Harvested / Planted (%)") +
+      theme_minimal(base_family = "serif") +
+      theme(
+        plot.title = element_text(color = "#1b5e20", face = "bold", size = 18),
+        panel.background = element_rect(fill = "#f1f8e9", color = NA),
+        plot.background = element_rect(fill = "#f9fbe7", color = NA)
+      )
+    ggplotly(gg)
+  })
+  
+  
+
+    
 }

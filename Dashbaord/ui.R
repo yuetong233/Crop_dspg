@@ -234,9 +234,44 @@ ui <- fluidPage(
     
     tabPanel("County Analysis",
              h4("About This Data"),
-             p("This section displays total corn acres planted and harvested across Virginia, Maryland, and North Carolina, based on real-time data from the USDA National Agricultural Statistics Service (NASS) API. The data automatically updates as new information becomes available, including the 2025 crop conditions once they are released later this year."),
-             p("Here, you can explore the amount of corn acres planted, the amount harvested, and the percent harvested, calculated directly from reported figures for each state. This provides insight into regional planting and harvesting activity over time."),
-             p("Please note that some counties or independent cities may not appear in the visualizations due to missing or unreported values in the NASS dataset. Additionally, urban areas such as Fairfax or Arlington are often excluded due to their limited involvement in crop production."),
+             p("This section provides insight into county-level corn production trends across Virginia, Maryland, and North Carolina from 2000 to 2025."),
+             p("You can explore historical acres planted, acres harvested, and harvest success rates. All data is sourced from the USDA National Agricultural Statistics Service (NASS) API and updates as new values are released."),
+             p("Use the dropdown menus to compare trends across counties within each state. Urban counties such as Fairfax or Arlington may be excluded due to limited or missing agricultural reporting."),
+             
+             br(), hr(),
+             
+             # Acres Planted
+             h4("Acres Planted (2000–2025)", style = "font-family: 'Times New Roman'; color: darkgreen;"),
+             fluidRow(
+               column(4, selectInput("state_planted", "Select State", choices = c("VA", "NC", "MD"), selected = "VA")),
+               column(4, uiOutput("county_planted_ui"))
+             ),
+             plotlyOutput("plot_planted", height = "400px"),
+             
+             br(), hr(),
+             
+             # Acres Harvested
+             h4("Acres Harvested (2000–2025)", style = "font-family: 'Times New Roman'; color: darkgreen;"),
+             fluidRow(
+               column(4, selectInput("state_harvested", "Select State", choices = c("VA", "NC", "MD"), selected = "VA")),
+               column(4, uiOutput("county_harvested_ui"))
+             ),
+             plotlyOutput("plot_harvested", height = "400px"),
+             
+             br(), hr(),
+             
+             # Success Rate
+             h4("Harvest Success Rate (%)", style = "font-family: 'Times New Roman'; color: darkgreen;"),
+             fluidRow(
+               column(4, selectInput("state_success", "Select State", choices = c("VA", "NC", "MD"), selected = "VA")),
+               column(4, uiOutput("county_success_ui"))
+             ),
+             plotlyOutput("plot_success", height = "400px"),
+             
+             br(), hr(),
+             
+             # Choropleth Map
+             h4("County-Level Choropleth Map"),
              fluidRow(
                lapply(years, function(yr) {
                  column(2, actionButton(paste0("btn_", yr), label = yr))
@@ -245,25 +280,11 @@ ui <- fluidPage(
              br(),
              leafletOutput("compare_map", height = "600px"),
              
-             
-             
-             br(), h4("Acres Planted vs. Harvested"),
-             
-             sidebarLayout(
-               sidebarPanel(
-                 h5("County Comparison Controls"),
-                 selectInput("county_year", "Select Year:", choices = 2021:2025, selected = 2025),
-                 selectInput("county_state", "Select State:", choices = c("VA", "NC", "MD"), selected = "VA"),
-                 uiOutput("county_picker_ui")
-               ),
-               mainPanel(
-                 plotlyOutput("county_acres_plot", height = "500px")
-               )
-             )
-             
-             
-             
+             br()
     ),
+    
+    
+    
     
     tabPanel("Yield Analysis",
              h4("Historical Corn Yield Analysis"),
