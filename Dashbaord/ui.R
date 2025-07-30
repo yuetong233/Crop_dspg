@@ -283,6 +283,14 @@ ui <- fluidPage(
     
     
     tabPanel("Yield Analysis",
+             h4("About This Data"),
+             p("This section provides insight into historical corn yield trends across Virginia, Maryland, and North Carolina from 2015 to 2023."),
+             p("You can explore yield trends over time and county-level yield distributions. All yield data is sourced from the USDA National Agricultural Statistics Service (NASS) API and measured in bushels per acre."),
+             p("Use the state selection controls to compare yield performance across different regions. The county choropleth map allows you to visualize spatial yield patterns within each state for specific years."),
+             p("Note: County-level yield data may be limited for some counties due to USDA reporting thresholds or confidentiality restrictions."),
+             
+             br(), hr(),
+             
              h4("Historical Corn Yield Analysis"),
              fluidRow(
                column(6,
@@ -310,9 +318,14 @@ ui <- fluidPage(
     ),
     
     tabPanel("Yield Forecast",
-             h4("About This Feature"),
-             p("This section provides a weekly forecast of corn yield for Virginia based on current crop conditions. The forecast uses a regression model that incorporates the distribution of crop conditions (Excellent and Good) to predict yield deviation from trend."),
-             p("The model assumes that better crop conditions (higher percentages of Excellent and Good ratings) will result in yields above trend, while poorer conditions will result in yields below trend."),
+             h4("About This Data"),
+             p("This section provides comprehensive yield forecasting for Virginia corn using multiple analytical approaches. The dashboard combines historical trend analysis, satellite-derived vegetation indices (EVI), and crop condition data to predict yield outcomes."),
+             p("The analysis includes three key components: (1) Long-term trend analysis (1984-2025) showing Virginia's yield progression, (2) EVI-based forecasting using satellite vegetation health data, and (3) Crop condition-based forecasting using Good+Excellent ratings. This multi-model approach provides robust yield predictions for agricultural planning and decision-making."),
+             p("All data is sourced from the USDA National Agricultural Statistics Service (NASS) API for crop conditions and yield data, and Google Earth Engine (Landsat satellite imagery) for vegetation indices. The forecasting models update weekly as new crop condition data becomes available during the growing season."),
+             p("Note: Forecast accuracy improves as the growing season progresses and more crop condition data becomes available."),
+             
+             br(), hr(),
+             
              br(),
              fluidRow(
                column(6,
