@@ -538,7 +538,7 @@ server <- function(input, output, session) {
   names(years_list) <- states
   get_state_yield <- function(state) {
     years <- years_list[[state]]
-    nassqs(list(
+    data <- nassqs(list(
       source_desc = "SURVEY",
       sector_desc = "CROPS",
       group_desc = "FIELD CROPS",
@@ -548,17 +548,33 @@ server <- function(input, output, session) {
       agg_level_desc = "STATE",
       state_alpha = state,
       year = years
-    )) %>%
+    ))
+    
+    # Filter to remove forecast data and keep only actual yield data
+    # Look for patterns that indicate forecast vs actual data
+    filtered_data <- data %>%
+      # Remove any records that contain "FORECAST" in the description
+      filter(!grepl("FORECAST", short_desc, ignore.case = TRUE)) %>%
+      # Remove any records that contain "PROJECTED" in the description
+      filter(!grepl("PROJECTED", short_desc, ignore.case = TRUE)) %>%
+      # Keep only records where the Value is numeric and reasonable (not 0 or NA)
+      filter(!is.na(Value) & as.numeric(Value) > 0) %>%
+      # If we still have duplicates, keep the first occurrence for each year
+      group_by(year) %>%
+      slice(1) %>%
+      ungroup() %>%
       mutate(
         State = state,
         Year = as.integer(year),
         Yield = as.numeric(Value)
       ) %>%
       select(State, Year, Yield)
+    
+    return(filtered_data)
   }
   get_county_yield <- function(state) {
     years <- years_list[[state]]
-    nassqs(list(
+    data <- nassqs(list(
       source_desc = "SURVEY",
       sector_desc = "CROPS",
       group_desc = "FIELD CROPS",
@@ -568,7 +584,21 @@ server <- function(input, output, session) {
       agg_level_desc = "COUNTY",
       state_alpha = state,
       year = years
-    )) %>%
+    ))
+    
+    # Filter to remove forecast data and keep only actual yield data
+    # Look for patterns that indicate forecast vs actual data
+    filtered_data <- data %>%
+      # Remove any records that contain "FORECAST" in the description
+      filter(!grepl("FORECAST", short_desc, ignore.case = TRUE)) %>%
+      # Remove any records that contain "PROJECTED" in the description
+      filter(!grepl("PROJECTED", short_desc, ignore.case = TRUE)) %>%
+      # Keep only records where the Value is numeric and reasonable (not 0 or NA)
+      filter(!is.na(Value) & as.numeric(Value) > 0) %>%
+      # If we still have duplicates, keep the first occurrence for each year
+      group_by(year) %>%
+      slice(1) %>%
+      ungroup() %>%
       mutate(
         State = state,
         Year = as.integer(year),
@@ -576,6 +606,8 @@ server <- function(input, output, session) {
         Yield = as.numeric(Value)
       ) %>%
       select(State, County, Year, Yield)
+    
+    return(filtered_data)
   }
   yield_state_all <- bind_rows(lapply(states, get_state_yield))
   yield_county_all <- bind_rows(lapply(states, get_county_yield))
@@ -670,10 +702,10 @@ server <- function(input, output, session) {
     library(tidyr)
     library(readr)
     
-    week_condition <- read.csv("../VA_weekly_condition.csv", fill = TRUE)
-    yield <- read.csv("../VA_yield.csv", fill = TRUE)
-    vis <- read.csv("../VA_multi.csv", fill = TRUE)
-    vi25 <- read.csv("../2025_VI.csv", fill = TRUE)
+    week_condition <- read.csv("VA_weekly_condition.csv", fill = TRUE)
+    yield <- read.csv("VA_yield.csv", fill = TRUE)
+    vis <- read.csv("VA_multi.csv", fill = TRUE)
+    vi25 <- read.csv("2025_VI.csv", fill = TRUE)
     
     wc_clean <- week_condition[, colSums(is.na(week_condition)) == 0]
     yield_clean <- yield[, colSums(is.na(yield)) == 0]
