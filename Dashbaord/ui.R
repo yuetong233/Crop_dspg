@@ -461,11 +461,11 @@ ui <- fluidPage(
           tags$li(
             strong("Faculty Advisors:"), 
             " ",
-            tags$a(href = "https://cat-astrophic.github.io/", target = "_blank", "Dr. Michael Cary"),
+            tags$a(href = "https://aaec.vt.edu/people/faculty/cary.html", target = "_blank", "Dr. Michael Cary"),
             ", ",
-            tags$a(href = "https://www.linkedin.com/in/mario-a-ortez-9a542148/", target = "_blank", "Dr. Mario Ortez Amador"),
+            tags$a(href = "https://aaec.vt.edu/people/faculty/ortez.html)", target = "_blank", "Dr. Mario Ortez Amador"),
             ", and ",
-            tags$a(href = "https://www.linkedin.com/in/le-wang-872aa529/", target = "_blank", "Dr. Le Wang")
+            tags$a(href = "https://aaec.vt.edu/people/faculty/lwang.html", target = "_blank", "Dr. Le Wang")
           )
         ),
         
